@@ -1210,8 +1210,8 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
         </div>
 
         <div class="tabs">
-            <button class="tab active" onclick="showTab('templates')">Templates</button>
-            <button class="tab" onclick="showTab('stats')">Statistiques</button>
+            <button class="tab active" onclick="showTab('templates', this)">Templates</button>
+            <button class="tab" onclick="showTab('stats', this)">Statistiques</button>
         </div>
 
         <div id="templatesTab" class="tab-content active">
@@ -1265,8 +1265,8 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
     <script>
         let currentTemplates = [];
 
-        function showTab(tabName) {
-            // Supprimer la classe active de tous les onglets
+        function showTab(tabName, clickedTab) {
+            // Supprimer la classe active de tous les onglets et contenus
             document.querySelectorAll('.tab-content').forEach(function(tab) {
                 tab.classList.remove('active');
             });
@@ -1276,16 +1276,9 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 
             // Ajouter la classe active à l'onglet sélectionné
             document.getElementById(tabName + 'Tab').classList.add('active');
-            
-            // Trouver le bon bouton tab et l'activer
-            const tabs = document.querySelectorAll('.tab');
-            tabs.forEach(function(tab) {
-                if (tab.textContent.toLowerCase().includes(tabName.toLowerCase()) || 
-                    (tabName === 'templates' && tab.textContent === 'Templates') ||
-                    (tabName === 'stats' && tab.textContent === 'Statistiques')) {
-                    tab.classList.add('active');
-                }
-            });
+            if (clickedTab) {
+                clickedTab.classList.add('active');
+            }
 
             if (tabName === 'stats') {
                 loadStats();
@@ -1304,20 +1297,28 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
         }
 
         function loadTemplates() {
+            console.log('Chargement des templates...');
             const loadingDiv = document.getElementById('templatesLoading');
             loadingDiv.style.display = 'block';
             
-            fetch('/api/templates')
+            fetch('/api/templates', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
                 .then(function(response) {
+                    console.log('Réponse reçue:', response.status);
                     if (!response.ok) {
-                        throw new Error('Erreur de chargement: ' + response.status);
+                        throw new Error('Erreur de chargement: ' + response.status + ' ' + response.statusText);
                     }
                     return response.json();
                 })
                 .then(function(templates) {
-                    currentTemplates = templates;
-                    displayTemplates(templates);
-                    updateTemplateSelect(templates);
+                    console.log('Templates reçus:', templates);
+                    currentTemplates = templates || [];
+                    displayTemplates(currentTemplates);
+                    updateTemplateSelect(currentTemplates);
                     loadingDiv.style.display = 'none';
                 })
                 .catch(function(error) {
@@ -1386,20 +1387,28 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
         }
 
         function displayTemplates(templates) {
+            console.log('Affichage des templates:', templates);
             const container = document.getElementById('templates');
             container.innerHTML = '<h2>Templates existants</h2>';
             
-            if (templates.length === 0) {
+            if (!templates || templates.length === 0) {
                 container.innerHTML += '<p>Aucun template trouvé. Créez votre premier template ci-dessus!</p>';
                 return;
             }
             
             templates.forEach(function(template) {
+                console.log('Affichage template:', template);
                 const div = document.createElement('div');
                 div.className = 'template';
                 
+                // Chargement des stats de manière asynchrone
                 fetch('/api/stats/' + encodeURIComponent(template.id))
-                    .then(function(response) { return response.json(); })
+                    .then(function(response) { 
+                        if (response.ok) {
+                            return response.json(); 
+                        }
+                        return { total_sent: 0, total_success: 0, total_failed: 0 };
+                    })
                     .then(function(stats) {
                         const statsSpan = div.querySelector('.template-stats');
                         if (statsSpan) {
@@ -1407,10 +1416,12 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
                         }
                     })
                     .catch(function(error) {
-                        console.error('Erreur stats:', error);
+                        console.error('Erreur stats pour template', template.id, ':', error);
                     });
                 
-                const exampleParams = template.params.map(function(param) {
+                // S'assurer que params est un array
+                const params = template.params || [];
+                const exampleParams = params.map(function(param) {
                     return '"' + param + '": "valeur"';
                 }).join(',\\n    ');
                 
@@ -1425,7 +1436,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
                     '<span class="template-stats">Chargement stats...</span>' +
                     '<h3>' + template.name + ' (' + template.id + ')</h3>' +
                     '<p><strong>Sujet:</strong> ' + template.subject + '</p>' +
-                    '<p><strong>Paramètres:</strong> ' + template.params.join(', ') + '</p>' +
+                    '<p><strong>Paramètres:</strong> ' + params.join(', ') + '</p>' +
                     (template.from_email ? '<p><strong>Email expéditeur:</strong> ' + template.from_email + '</p>' : '') +
                     '<p><strong>HTML:</strong></p>' +
                     '<pre>' + template.html + '</pre>' +
@@ -1491,6 +1502,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
         }
 
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM chargé, initialisation...');
             loadTemplates();
             
             // Attacher l'événement pour le select des templates  
@@ -1498,30 +1510,47 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
             if (templateSelect) {
                 templateSelect.addEventListener('change', updateParamInputs);
             }
-            
-            // Attacher les événements pour les onglets
-            document.querySelectorAll('.tab').forEach(function(tab, index) {
-                tab.addEventListener('click', function() {
-                    if (index === 0) {
-                        showTab('templates');
-                    } else if (index === 1) {
-                        showTab('stats');
-                    }
-                });
-            });
         });
 
         function copyApiKey() {
             const apiKey = document.getElementById('apiKey').textContent;
-            if (navigator.clipboard && navigator.clipboard.writeText) {
+            
+            // Méthode moderne pour copier
+            if (navigator.clipboard && window.isSecureContext) {
                 navigator.clipboard.writeText(apiKey).then(function() {
-                    alert('Clé API copiée !');
+                    alert('Clé API copiée dans le presse-papiers !');
                 }).catch(function(err) {
-                    console.error('Erreur copie:', err);
-                    prompt('Copiez cette clé API:', apiKey);
+                    console.error('Erreur copie avec clipboard API:', err);
+                    fallbackCopyTextToClipboard(apiKey);
                 });
             } else {
-                prompt('Copiez cette clé API:', apiKey);
+                // Méthode de fallback
+                fallbackCopyTextToClipboard(apiKey);
+            }
+        }
+        
+        function fallbackCopyTextToClipboard(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-999999px";
+            textArea.style.top = "-999999px";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    alert('Clé API copiée dans le presse-papiers !');
+                } else {
+                    throw new Error('Copie échouée');
+                }
+            } catch (err) {
+                console.error('Erreur de copie:', err);
+                prompt('Copiez manuellement cette clé API (Ctrl+C puis Escape):', text);
+            } finally {
+                document.body.removeChild(textArea);
             }
         }
 
@@ -1538,6 +1567,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 
         function addTemplate(event) {
             event.preventDefault();
+            console.log('Ajout de template...');
 
             const templateId = document.getElementById('templateId').value.trim();
             const templateName = document.getElementById('templateName').value.trim();
@@ -1568,6 +1598,8 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
                 template.from_email = templateFromEmail;
             }
 
+            console.log('Template à envoyer:', template);
+
             const button = event.target.querySelector('button[type="submit"]') || event.target;
             const originalText = button.textContent;
             button.disabled = true;
@@ -1575,26 +1607,34 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 
             fetch('/api/templates', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify(template)
             })
             .then(function(response) {
+                console.log('Réponse ajout template:', response.status);
                 if (!response.ok) {
                     return response.text().then(function(text) {
-                        throw new Error(text || 'Erreur serveur');
+                        throw new Error(text || 'Erreur serveur: ' + response.status);
                     });
                 }
                 return response.json();
             })
             .then(function(data) {
+                console.log('Template ajouté avec succès:', data);
                 showMessage('addTemplateMessage', 'Template ajouté avec succès!', false);
-                loadTemplates();
+                // Vider le formulaire
                 document.getElementById('templateId').value = '';
                 document.getElementById('templateName').value = '';
                 document.getElementById('templateSubject').value = '';
                 document.getElementById('templateHTML').value = '';
                 document.getElementById('templateParams').value = '';
                 document.getElementById('templateFromEmail').value = '';
+                // Recharger les templates
+                setTimeout(function() {
+                    loadTemplates();
+                }, 500);
             })
             .catch(function(error) {
                 console.error('Erreur ajout template:', error);

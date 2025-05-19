@@ -710,7 +710,6 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
                     select.innerHTML = '<option value="">Sélectionner un template</option>';
                     
                     templates.forEach(template => {
-                        // Ajouter à la liste
                         const div = document.createElement('div');
                         div.className = 'template';
                         
@@ -718,24 +717,25 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
                             '"' + param + '": "valeur"'
                         ).join(',\\n    ');
                         
+                        const curlExample = 'curl -X POST https://your-app.railway.app/email/' + template.id + ' \\\\\\n' +
+                            '  -H "Content-Type: application/json" \\\\\\n' +
+                            '  -H "X-API-Key: YOUR_API_KEY" \\\\\\n' +
+                            '  -d \\'{\\n' +
+                            '    "to": "user@example.com",\\n' +
+                            '    ' + exampleParams + '\\n' +
+                            '  }\\'';
+                        
                         div.innerHTML = 
                             '<h3>' + template.name + ' (' + template.id + ')</h3>' +
                             '<p><strong>Sujet:</strong> ' + template.subject + '</p>' +
                             '<p><strong>Paramètres:</strong> ' + template.params.join(', ') + '</p>' +
                             (template.from_email ? '<p><strong>Email expéditeur:</strong> ' + template.from_email + '</p>' : '') +
                             '<pre>' + template.html + '</pre>' +
-                            '<p><strong>Exemple d\'appel API:</strong></p>' +
-                            '<pre>curl -X POST https://your-app.railway.app/email/' + template.id + ' \\\\' + '\n' +
-                            '  -H "Content-Type: application/json" \\\\' + '\n' +
-                            '  -H "X-API-Key: YOUR_API_KEY" \\\\' + '\n' +
-                            '  -d \'{\n' +
-                            '    "to": "user@example.com",' + '\n' +
-                            '    ' + exampleParams + '\n' +
-                            '  }\'</pre>' +
-                            '<button class="btn-danger" onclick="deleteTemplate(\'' + template.id + '\')">Supprimer</button>';
+                            '<p><strong>Exemple d\\'appel API:</strong></p>' +
+                            '<pre>' + curlExample + '</pre>' +
+                            '<button class="btn-danger" onclick="deleteTemplate(\\'' + template.id + '\\')">Supprimer</button>';
                         container.appendChild(div);
                         
-                        // Ajouter au select
                         const option = document.createElement('option');
                         option.value = template.id;
                         option.textContent = template.name;
@@ -818,7 +818,6 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
                 if (response.ok) {
                     alert('Template ajouté!');
                     loadTemplates();
-                    // Clear form
                     document.getElementById('templateId').value = '';
                     document.getElementById('templateName').value = '';
                     document.getElementById('templateSubject').value = '';
@@ -826,12 +825,12 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
                     document.getElementById('templateParams').value = '';
                     document.getElementById('templateFromEmail').value = '';
                 } else {
-                    alert('Erreur lors de l\'ajout');
+                    alert('Erreur lors de l\\'ajout');
                 }
             })
             .catch(error => {
                 console.error('Erreur:', error);
-                alert('Erreur lors de l\'ajout');
+                alert('Erreur lors de l\\'ajout');
             });
         }
 
@@ -862,10 +861,8 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
                 return;
             }
             
-            // Construire l'objet avec les paramètres
             const emailData = { to: email };
             
-            // Ajouter tous les paramètres du template
             const paramInputs = document.querySelectorAll('#paramInputs input');
             paramInputs.forEach(input => {
                 const paramName = input.getAttribute('data-param');
@@ -884,68 +881,180 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
                 if (response.ok) {
                     alert('Email envoyé!');
                 } else {
-                    alert('Erreur lors de l\'envoi');
+                    alert('Erreur lors de l\\'envoi');
                 }
             })
             .catch(error => {
                 console.error('Erreur:', error);
-                alert('Erreur lors de l\'envoi');
+                alert('Erreur lors de l\\'envoi');
             });
         }
 
-        // Charger les templates au démarrage
         loadTemplates();
     </script>
 </body>
 </html>`
-                    console.error('Erreur:', error);
-                    alert('Erreur lors de la suppression');
-                });
-            }
-        }
 
-        function testEmail() {
-            const templateId = document.getElementById('testTemplateId').value;
-            const email = document.getElementById('testEmail').value;
-            
-            if (!templateId || !email) {
-                alert('Veuillez sélectionner un template et saisir un email');
-                return;
-            }
-            
-            // Construire l'objet avec les paramètres
-            const emailData = { to: email };
-            
-            // Ajouter tous les paramètres du template
-            const paramInputs = document.querySelectorAll('#paramInputs input');
-            paramInputs.forEach(input => {
-                const paramName = input.getAttribute('data-param');
-                emailData[paramName] = input.value;
-            });
-            
-            fetch('/email/' + templateId, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'X-API-Key': '%s'
-                },
-                body: JSON.stringify(emailData)
-            })
-            .then(response => {
-                if (response.ok) {
-                    alert('Email envoyé!');
-                } else {
-                    alert('Erreur lors de l\'envoi');
-                }
-            })
-            .catch(error => {
-                console.error('Erreur:', error);
-                alert('Erreur lors de l\'envoi');
-            });
-        }
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprint(w, html)
+}
 
-        // Charger les templates au démarrage
-        loadTemplates();
-    </script>
-</body>
-</html>`, apiKey, apiKey)
+// API Handlers pour la gestion des templates (sécurisés)
+func getTemplatesHandler(w http.ResponseWriter, r *http.Request) {
+	templates := templateManager.GetAllTemplates()
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(templates); err != nil {
+		log.Printf("Erreur encoding templates: %v", err)
+		http.Error(w, "Erreur interne", http.StatusInternalServerError)
+	}
+}
+
+func addTemplateHandler(w http.ResponseWriter, r *http.Request) {
+	var template EmailTemplate
+	if err := json.NewDecoder(r.Body).Decode(&template); err != nil {
+		http.Error(w, "JSON invalide", http.StatusBadRequest)
+		return
+	}
+
+	if template.ID == "" || template.Name == "" {
+		http.Error(w, "ID et nom requis", http.StatusBadRequest)
+		return
+	}
+
+	// Validation des paramètres
+	if template.Subject == "" {
+		template.Subject = "Email de {{.email}}"
+	}
+	if template.HTML == "" {
+		template.HTML = "<p>Contenu par défaut</p>"
+	}
+
+	templateManager.AddTemplate(template)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "created"})
+}
+
+func deleteTemplateHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	templateID := vars["id"]
+	
+	if templateID == "" {
+		http.Error(w, "ID requis", http.StatusBadRequest)
+		return
+	}
+	
+	// Vérifier que le template existe
+	if _, exists := templateManager.GetTemplate(templateID); !exists {
+		http.Error(w, "Template non trouvé", http.StatusNotFound)
+		return
+	}
+	
+	templateManager.DeleteTemplate(templateID)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
+}
+
+// Fonction pour nettoyer les sessions expirées (optionnel, pour optimisation)
+func cleanupExpiredSessions() {
+	sessionMutex.Lock()
+	defer sessionMutex.Unlock()
+	
+	now := time.Now()
+	for token, session := range adminSessions {
+		if now.After(session.Expires) {
+			delete(adminSessions, token)
+		}
+	}
+}
+
+func main() {
+	// Initialiser les variables d'environnement
+	resendAPIKey = os.Getenv("RESEND_API_KEY")
+	fromEmail = os.Getenv("FROM_EMAIL")
+	adminPassword = os.Getenv("ADMIN_PASSWORD")
+	
+	if resendAPIKey == "" {
+		log.Fatal("RESEND_API_KEY est requis")
+	}
+	if fromEmail == "" {
+		fromEmail = "noreply@example.com"
+		log.Printf("FROM_EMAIL non défini, utilisation de: %s", fromEmail)
+	}
+	if adminPassword == "" {
+		adminPassword = "admin123" // Mot de passe par défaut (à changer !)
+		log.Println("ATTENTION: Utilisation du mot de passe admin par défaut. Définissez ADMIN_PASSWORD.")
+	}
+
+	// Générer une clé API unique
+	apiKey = generateAPIKey()
+	log.Printf("Clé API générée: %s", apiKey)
+
+	// Initialiser les sessions admin
+	adminSessions = make(map[string]AdminSession)
+
+	// Initialiser le gestionnaire de templates
+	templateManager = NewTemplateManager()
+
+	// Configurer les routes
+	r := mux.NewRouter()
+	
+	// Routes publiques pour l'envoi d'emails (protégées par API key)
+	r.HandleFunc("/email/{template}", apiKeyMiddleware(sendEmailHandler)).Methods("POST")
+	
+	// Routes pour l'authentification admin
+	r.HandleFunc("/admin/login", loginPageHandler).Methods("GET")
+	r.HandleFunc("/admin/login", loginHandler).Methods("POST")
+	r.HandleFunc("/admin/logout", logoutHandler).Methods("POST")
+	
+	// Routes pour l'interface d'administration (protégées par session)
+	r.HandleFunc("/admin", adminAuthMiddleware(adminHandler)).Methods("GET")
+	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/admin", http.StatusSeeOther)
+	}).Methods("GET")
+	
+	// API pour la gestion des templates (protégée par session admin)
+	r.HandleFunc("/api/templates", adminAuthMiddleware(getTemplatesHandler)).Methods("GET")
+	r.HandleFunc("/api/templates", adminAuthMiddleware(addTemplateHandler)).Methods("POST")
+	r.HandleFunc("/api/templates/{id}", adminAuthMiddleware(deleteTemplateHandler)).Methods("DELETE")
+
+	// Configuration CORS
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"*"},
+		AllowCredentials: true,
+	})
+
+	handler := c.Handler(r)
+
+	// Lancer le nettoyage des sessions expirées toutes les heures
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			cleanupExpiredSessions()
+		}
+	}()
+
+	// Démarrer le serveur
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Printf("Serveur démarré sur le port %s", port)
+	log.Printf("Interface admin: http://localhost:%s/admin/login", port)
+	log.Printf("Mot de passe admin: %s", adminPassword)
+	log.Printf("FROM_EMAIL: %s", fromEmail)
+	
+	// Graceful shutdown
+	server := &http.Server{
+		Addr:         ":" + port,
+		Handler:      handler,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+	
+	log.Fatal(server.ListenAndServe())
+}

@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -89,7 +88,6 @@ func (tm *TemplateManager) GetTemplate(id string) (EmailTemplate, bool) {
 	defer tm.mutex.RUnlock()
 
 	var template EmailTemplate
-	var paramsStr sql.NullString
 	var fromEmail sql.NullString
 
 	query := `SELECT id, name, subject, html, from_email FROM email_templates WHERE id = $1`

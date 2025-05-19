@@ -1,4 +1,114 @@
-package main
+// Handler pour l'interface web admin (sécurisée)
+func adminHandler(w http.ResponseWriter, r *http.Request) {
+	html := `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Email Template Manager</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        :root {
+            --background: 222.2 84% 4.9%;
+            --foreground: 210 40% 98%;
+            --card: 222.2 84% 4.9%;
+            --card-foreground: 210 40% 98%;
+            --popover: 222.2 84% 4.9%;
+            --popover-foreground: 210 40% 98%;
+            --primary: 210 40% 98%;
+            --primary-foreground: 222.2 84% 4.9%;
+            --secondary: 217.2 32.6% 17.5%;
+            --secondary-foreground: 210 40% 98%;
+            --muted: 217.2 32.6% 17.5%;
+            --muted-foreground: 215 20.2% 65.1%;
+            --accent: 217.2 32.6% 17.5%;
+            --accent-foreground: 210 40% 98%;
+            --destructive: 0 62.8% 30.6%;
+            --destructive-foreground: 210 40% 98%;
+            --border: 217.2 32.6% 17.5%;
+            --input: 217.2 32.6% 17.5%;
+            --ring: 212.7 26.8% 83.9%;
+            --success: 142.1 76.2% 36.3%;
+            --warning: 47.9 95.8% 53.1%;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: hsl(var(--background));
+            color: hsl(var(--foreground));
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid hsl(var(--border));
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 600;
+        }
+
+        .card {
+            background: hsl(var(--card));
+            border: 1px solid hsl(var(--border));
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+        }
+
+        .card-header {
+            margin-bottom: 1rem;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .card-description {
+            color: hsl(var(--muted-foreground));
+            font-size: 0.875rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        input, textarea, select {
+            width:package main
 
 import (
 	"bytes"
@@ -146,9 +256,9 @@ func adminAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 }
 
 // Fonction pour envoyer un email via Resend
-func sendEmailViaResend(to, subject, html string) error {
+func sendEmailViaResend(to, subject, html, from string) error {
 	reqBody := ResendRequest{
-		From:    fromEmail,
+		From:    from,
 		To:      []string{to},
 		Subject: subject,
 		HTML:    html,
@@ -239,8 +349,13 @@ func sendEmailHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Envoyer l'email
-	if err := sendEmailViaResend(to, subjectBuf.String(), htmlBuf.String()); err != nil {
+	// Envoyer l'email avec le from_email du template
+	emailFrom := emailTemplate.FromEmail
+	if emailFrom == "" {
+		emailFrom = fromEmail // Fallback sur l'email par défaut
+	}
+	
+	if err := sendEmailViaResend(to, subjectBuf.String(), htmlBuf.String(), emailFrom); err != nil {
 		log.Printf("Erreur envoi email: %v", err)
 		http.Error(w, "Erreur envoi email", http.StatusInternalServerError)
 		return
@@ -258,22 +373,174 @@ func loginPageHandler(w http.ResponseWriter, r *http.Request) {
 <head>
     <title>Admin Login</title>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
-        .login-container { max-width: 400px; margin: 100px auto; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        button:hover { background: #0056b3; }
-        .error { color: red; margin-top: 10px; }
-        h1 { text-align: center; color: #333; }
+        :root {
+            --background: 222.2 84% 4.9%;
+            --foreground: 210 40% 98%;
+            --card: 222.2 84% 4.9%;
+            --card-foreground: 210 40% 98%;
+            --popover: 222.2 84% 4.9%;
+            --popover-foreground: 210 40% 98%;
+            --primary: 210 40% 98%;
+            --primary-foreground: 222.2 84% 4.9%;
+            --secondary: 217.2 32.6% 17.5%;
+            --secondary-foreground: 210 40% 98%;
+            --muted: 217.2 32.6% 17.5%;
+            --muted-foreground: 215 20.2% 65.1%;
+            --accent: 217.2 32.6% 17.5%;
+            --accent-foreground: 210 40% 98%;
+            --destructive: 0 62.8% 30.6%;
+            --destructive-foreground: 210 40% 98%;
+            --border: 217.2 32.6% 17.5%;
+            --input: 217.2 32.6% 17.5%;
+            --ring: 212.7 26.8% 83.9%;
+            --chart-1: 220 70% 50%;
+            --chart-2: 160 60% 45%;
+            --chart-3: 30 80% 55%;
+            --chart-4: 280 65% 60%;
+            --chart-5: 340 75% 55%;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: hsl(var(--background));
+            color: hsl(var(--foreground));
+            line-height: 1.5;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-container {
+            width: 100%;
+            max-width: 400px;
+            padding: 2rem;
+            background: hsl(var(--card));
+            border: 1px solid hsl(var(--border));
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.05);
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .logo h1 {
+            font-size: 1.875rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .logo p {
+            color: hsl(var(--muted-foreground));
+            font-size: 0.875rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        input {
+            width: 100%;
+            padding: 0.75rem;
+            background: hsl(var(--input));
+            border: 1px solid hsl(var(--border));
+            border-radius: 0.375rem;
+            color: hsl(var(--foreground));
+            font-size: 0.875rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: hsl(var(--ring));
+            box-shadow: 0 0 0 2px hsl(var(--ring) / 0.2);
+        }
+
+        button {
+            width: 100%;
+            padding: 0.75rem;
+            background: hsl(var(--primary));
+            color: hsl(var(--primary-foreground));
+            border: none;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background: hsl(var(--primary) / 0.9);
+        }
+
+        button:disabled {
+            background: hsl(var(--muted));
+            color: hsl(var(--muted-foreground));
+            cursor: not-allowed;
+        }
+
+        .error {
+            color: hsl(var(--destructive));
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+            text-align: center;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid hsl(var(--primary-foreground) / 0.3);
+            border-radius: 50%;
+            border-top-color: hsl(var(--primary-foreground));
+            animation: spin 0.8s ease-in-out infinite;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
     </style>
 </head>
 <body>
     <div class="login-container">
-        <h1>Admin Login</h1>
+        <div class="logo">
+            <h1>Email Manager</h1>
+            <p>Connectez-vous à votre tableau de bord</p>
+        </div>
+        
         <form onsubmit="login(event)">
-            <input type="password" id="password" placeholder="Mot de passe admin" required>
-            <button type="submit">Se connecter</button>
+            <div class="form-group">
+                <label for="password">Mot de passe</label>
+                <input type="password" id="password" placeholder="Entrez votre mot de passe" required>
+            </div>
+            
+            <button type="submit" id="loginBtn">
+                <span id="loginSpinner" class="spinner hidden"></span>
+                <span id="loginText">Se connecter</span>
+            </button>
+            
             <div id="error" class="error"></div>
         </form>
     </div>
@@ -282,6 +549,18 @@ func loginPageHandler(w http.ResponseWriter, r *http.Request) {
         async function login(event) {
             event.preventDefault();
             const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('loginBtn');
+            const loginText = document.getElementById('loginText');
+            const loginSpinner = document.getElementById('loginSpinner');
+            const errorDiv = document.getElementById('error');
+            
+            // Reset error
+            errorDiv.textContent = '';
+            
+            // Show loading state
+            loginBtn.disabled = true;
+            loginSpinner.classList.remove('hidden');
+            loginText.textContent = 'Connexion...';
             
             try {
                 const response = await fetch('/admin/login', {
@@ -291,12 +570,18 @@ func loginPageHandler(w http.ResponseWriter, r *http.Request) {
                 });
                 
                 if (response.ok) {
+                    loginText.textContent = 'Succès !';
                     window.location.href = '/admin';
                 } else {
-                    document.getElementById('error').textContent = 'Mot de passe incorrect';
+                    throw new Error('Mot de passe incorrect');
                 }
             } catch (error) {
-                document.getElementById('error').textContent = 'Erreur de connexion';
+                errorDiv.textContent = error.message || 'Erreur de connexion';
+            } finally {
+                // Hide loading state
+                loginBtn.disabled = false;
+                loginSpinner.classList.add('hidden');
+                loginText.textContent = 'Se connecter';
             }
         }
     </script>

@@ -461,7 +461,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
   -H "X-API-Key: YOUR_API_KEY" \\
   -d '{
     "to": "user@example.com",
-    ${template.params.map(param => `"${param}": "valeur"`).join(',\n    ')}
+    ` + "${template.params.map(param => `\"${param}\": \"valeur\"`).join(',\\n    ')}" + `
   }'</pre>
                             <button class="btn-danger" onclick="deleteTemplate('${template.id}')">Supprimer</button>
                         ` + "`" + `;

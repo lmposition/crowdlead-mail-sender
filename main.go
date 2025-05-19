@@ -653,6 +653,22 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
             color: #007bff;
             margin-top: 0;
         }
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
@@ -671,13 +687,14 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
         
         <div class="form-group">
             <h2>Ajouter un nouveau template</h2>
-            <input type="text" id="templateId" placeholder="ID du template (ex: welcome)">
-            <input type="text" id="templateName" placeholder="Nom du template">
-            <input type="text" id="templateSubject" placeholder="Sujet (ex: Bienvenue {{.first_name}}!)">
-            <textarea id="templateHTML" rows="5" placeholder="HTML du template (ex: <h1>Bonjour {{.first_name}}!</h1>)"></textarea>
+            <input type="text" id="templateId" placeholder="ID du template (ex: welcome)" required>
+            <input type="text" id="templateName" placeholder="Nom du template" required>
+            <input type="text" id="templateSubject" placeholder="Sujet (ex: Bienvenue {{.first_name}}!)" required>
+            <textarea id="templateHTML" rows="5" placeholder="HTML du template (ex: <h1>Bonjour {{.first_name}}!</h1>)" required></textarea>
             <input type="text" id="templateParams" placeholder="Paramètres séparés par des virgules (ex: first_name,last_name)">
             <input type="email" id="templateFromEmail" placeholder="Email expéditeur (optionnel)">
-            <button class="btn-primary" onclick="addTemplate()">Ajouter Template</button>
+            <button class="btn-primary" onclick="addTemplate(event)">Ajouter Template</button>
+            <div id="addTemplateMessage"></div>
         </div>
 
         <div class="form-group">
@@ -685,66 +702,104 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
             <select id="testTemplateId">
                 <option value="">Sélectionner un template</option>
             </select>
-            <input type="email" id="testEmail" placeholder="Email destinataire">
+            <input type="email" id="testEmail" placeholder="Email destinataire" required>
             <div id="paramInputs"></div>
             <button class="btn-success" onclick="testEmail()">Envoyer Test</button>
+            <div id="testEmailMessage"></div>
         </div>
 
         <div id="templates">
             <h2>Templates existants</h2>
+            <div id="templatesLoading">Chargement...</div>
         </div>
     </div>
 
     <script>
         let currentTemplates = [];
 
+        function showMessage(elementId, message, isError = false) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = isError ? 'error-message' : 'success-message';
+            element.style.display = 'block';
+            setTimeout(() => {
+                element.style.display = 'none';
+            }, 5000);
+        }
+
         function loadTemplates() {
+            const loadingDiv = document.getElementById('templatesLoading');
+            loadingDiv.style.display = 'block';
+            
             fetch('/api/templates')
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Erreur de chargement: ' + response.status);
+                    }
+                    return response.json();
+                })
                 .then(templates => {
                     currentTemplates = templates;
-                    const container = document.getElementById('templates');
-                    const select = document.getElementById('testTemplateId');
-                    
-                    container.innerHTML = '<h2>Templates existants</h2>';
-                    select.innerHTML = '<option value="">Sélectionner un template</option>';
-                    
-                    templates.forEach(template => {
-                        const div = document.createElement('div');
-                        div.className = 'template';
-                        
-                        const exampleParams = template.params.map(param => 
-                            '"' + param + '": "valeur"'
-                        ).join(',\\n    ');
-                        
-                        const curlExample = 'curl -X POST https://your-app.railway.app/email/' + template.id + ' \\\\\\n' +
-                            '  -H "Content-Type: application/json" \\\\\\n' +
-                            '  -H "X-API-Key: YOUR_API_KEY" \\\\\\n' +
-                            '  -d \\'{\\n' +
-                            '    "to": "user@example.com",\\n' +
-                            '    ' + exampleParams + '\\n' +
-                            '  }\\'';
-                        
-                        div.innerHTML = 
-                            '<h3>' + template.name + ' (' + template.id + ')</h3>' +
-                            '<p><strong>Sujet:</strong> ' + template.subject + '</p>' +
-                            '<p><strong>Paramètres:</strong> ' + template.params.join(', ') + '</p>' +
-                            (template.from_email ? '<p><strong>Email expéditeur:</strong> ' + template.from_email + '</p>' : '') +
-                            '<pre>' + template.html + '</pre>' +
-                            '<p><strong>Exemple d\\'appel API:</strong></p>' +
-                            '<pre>' + curlExample + '</pre>' +
-                            '<button class="btn-danger" onclick="deleteTemplate(\\'' + template.id + '\\')">Supprimer</button>';
-                        container.appendChild(div);
-                        
-                        const option = document.createElement('option');
-                        option.value = template.id;
-                        option.textContent = template.name;
-                        select.appendChild(option);
-                    });
+                    displayTemplates(templates);
+                    updateTemplateSelect(templates);
+                    loadingDiv.style.display = 'none';
                 })
                 .catch(error => {
                     console.error('Erreur chargement templates:', error);
+                    document.getElementById('templates').innerHTML = 
+                        '<h2>Templates existants</h2><div class="error-message">Erreur de chargement: ' + error.message + '</div>';
+                    loadingDiv.style.display = 'none';
                 });
+        }
+
+        function displayTemplates(templates) {
+            const container = document.getElementById('templates');
+            container.innerHTML = '<h2>Templates existants</h2>';
+            
+            if (templates.length === 0) {
+                container.innerHTML += '<p>Aucun template trouvé. Créez votre premier template ci-dessus!</p>';
+                return;
+            }
+            
+            templates.forEach(template => {
+                const div = document.createElement('div');
+                div.className = 'template';
+                
+                const exampleParams = template.params.map(param => 
+                    '"' + param + '": "valeur"'
+                ).join(',\\n    ');
+                
+                const curlExample = 'curl -X POST ' + window.location.origin + '/email/' + template.id + ' \\\\\\n' +
+                    '  -H "Content-Type: application/json" \\\\\\n' +
+                    '  -H "X-API-Key: ' + document.getElementById('apiKey').textContent + '" \\\\\\n' +
+                    '  -d \\'{\\n' +
+                    '    "to": "user@example.com"' + (exampleParams ? ',\\n' + '    ' + exampleParams : '') + '\\n' +
+                    '  }\\'';
+                
+                div.innerHTML = 
+                    '<h3>' + template.name + ' (' + template.id + ')</h3>' +
+                    '<p><strong>Sujet:</strong> ' + template.subject + '</p>' +
+                    '<p><strong>Paramètres:</strong> ' + template.params.join(', ') + '</p>' +
+                    (template.from_email ? '<p><strong>Email expéditeur:</strong> ' + template.from_email + '</p>' : '') +
+                    '<p><strong>HTML:</strong></p>' +
+                    '<pre>' + template.html + '</pre>' +
+                    '<p><strong>Exemple d\\'appel API:</strong></p>' +
+                    '<pre>' + curlExample + '</pre>' +
+                    '<button class="btn-danger" onclick="deleteTemplate(\\'' + template.id + '\\')">Supprimer</button>';
+                container.appendChild(div);
+            });
+        }
+
+        function updateTemplateSelect(templates) {
+            const select = document.getElementById('testTemplateId');
+            select.innerHTML = '<option value="">Sélectionner un template</option>';
+            
+            templates.forEach(template => {
+                const option = document.createElement('option');
+                option.value = template.id;
+                option.textContent = template.name;
+                select.appendChild(option);
+            });
         }
 
         function updateParamInputs() {
@@ -766,6 +821,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
                 input.placeholder = param;
                 input.id = 'param_' + param;
                 input.setAttribute('data-param', param);
+                input.required = true;
                 paramInputsDiv.appendChild(input);
             });
         }
@@ -776,6 +832,9 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
             const apiKey = document.getElementById('apiKey').textContent;
             navigator.clipboard.writeText(apiKey).then(() => {
                 alert('Clé API copiée !');
+            }).catch(err => {
+                console.error('Erreur copie:', err);
+                prompt('Copiez cette clé API:', apiKey);
             });
         }
 
@@ -790,24 +849,48 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
                 });
         }
 
-        function addTemplate() {
-            const fromEmail = document.getElementById('templateFromEmail').value;
-            const template = {
-                id: document.getElementById('templateId').value,
-                name: document.getElementById('templateName').value,
-                subject: document.getElementById('templateSubject').value,
-                html: document.getElementById('templateHTML').value,
-                params: document.getElementById('templateParams').value.split(',').map(p => p.trim()).filter(p => p)
-            };
-
-            if (fromEmail) {
-                template.from_email = fromEmail;
+        function addTemplate(event) {
+            // Empêcher le comportement par défaut si c'est un événement de formulaire
+            if (event && event.preventDefault) {
+                event.preventDefault();
             }
 
-            if (!template.id || !template.name) {
-                alert('ID et nom du template sont requis');
+            const templateId = document.getElementById('templateId').value.trim();
+            const templateName = document.getElementById('templateName').value.trim();
+            const templateSubject = document.getElementById('templateSubject').value.trim();
+            const templateHTML = document.getElementById('templateHTML').value.trim();
+            const templateParams = document.getElementById('templateParams').value.trim();
+            const templateFromEmail = document.getElementById('templateFromEmail').value.trim();
+
+            // Validation côté client
+            if (!templateId || !templateName || !templateSubject || !templateHTML) {
+                showMessage('addTemplateMessage', 'Tous les champs marqués comme requis doivent être remplis', true);
                 return;
             }
+
+            // Vérifier que l'ID contient seulement des caractères valides
+            if (!/^[a-zA-Z0-9_-]+$/.test(templateId)) {
+                showMessage('addTemplateMessage', 'L\\'ID ne peut contenir que des lettres, chiffres, tirets et underscores', true);
+                return;
+            }
+
+            const template = {
+                id: templateId,
+                name: templateName,
+                subject: templateSubject,
+                html: templateHTML,
+                params: templateParams ? templateParams.split(',').map(p => p.trim()).filter(p => p) : []
+            };
+
+            if (templateFromEmail) {
+                template.from_email = templateFromEmail;
+            }
+
+            // Trouver le bouton qui a déclenché l'action
+            const button = event && event.target ? event.target : document.querySelector('.btn-primary');
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'Ajout...';
 
             fetch('/api/templates', {
                 method: 'POST',
@@ -815,82 +898,136 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
                 body: JSON.stringify(template)
             })
             .then(response => {
-                if (response.ok) {
-                    alert('Template ajouté!');
-                    loadTemplates();
-                    document.getElementById('templateId').value = '';
-                    document.getElementById('templateName').value = '';
-                    document.getElementById('templateSubject').value = '';
-                    document.getElementById('templateHTML').value = '';
-                    document.getElementById('templateParams').value = '';
-                    document.getElementById('templateFromEmail').value = '';
-                } else {
-                    alert('Erreur lors de l\\'ajout');
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        throw new Error(text || 'Erreur serveur');
+                    });
                 }
+                return response.json();
+            })
+            .then(data => {
+                showMessage('addTemplateMessage', 'Template ajouté avec succès!', false);
+                loadTemplates();
+                // Vider le formulaire
+                document.getElementById('templateId').value = '';
+                document.getElementById('templateName').value = '';
+                document.getElementById('templateSubject').value = '';
+                document.getElementById('templateHTML').value = '';
+                document.getElementById('templateParams').value = '';
+                document.getElementById('templateFromEmail').value = '';
             })
             .catch(error => {
-                console.error('Erreur:', error);
-                alert('Erreur lors de l\\'ajout');
+                console.error('Erreur ajout template:', error);
+                showMessage('addTemplateMessage', 'Erreur: ' + error.message, true);
+            })
+            .finally(() => {
+                button.disabled = false;
+                button.textContent = originalText;
             });
         }
 
         function deleteTemplate(id) {
-            if (confirm('Supprimer ce template?')) {
-                fetch('/api/templates/' + id, { method: 'DELETE' })
-                .then(response => {
-                    if (response.ok) {
-                        alert('Template supprimé!');
-                        loadTemplates();
-                    } else {
-                        alert('Erreur lors de la suppression');
-                    }
-                })
-                .catch(error => {
-                    console.error('Erreur:', error);
-                    alert('Erreur lors de la suppression');
-                });
+            if (!confirm('Êtes-vous sûr de vouloir supprimer ce template?')) {
+                return;
             }
+
+            fetch('/api/templates/' + encodeURIComponent(id), { 
+                method: 'DELETE' 
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        throw new Error(text || 'Erreur serveur');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                loadTemplates();
+                alert('Template supprimé avec succès!');
+            })
+            .catch(error => {
+                console.error('Erreur suppression template:', error);
+                alert('Erreur: ' + error.message);
+            });
         }
 
-        function testEmail() {
+        function testEmail(event) {
+            // Empêcher le comportement par défaut si c'est un événement de formulaire
+            if (event && event.preventDefault) {
+                event.preventDefault();
+            }
+
             const templateId = document.getElementById('testTemplateId').value;
-            const email = document.getElementById('testEmail').value;
+            const email = document.getElementById('testEmail').value.trim();
             
             if (!templateId || !email) {
-                alert('Veuillez sélectionner un template et saisir un email');
+                showMessage('testEmailMessage', 'Veuillez sélectionner un template et saisir un email', true);
                 return;
             }
             
-            const emailData = { to: email };
-            
-            const paramInputs = document.querySelectorAll('#paramInputs input');
-            paramInputs.forEach(input => {
-                const paramName = input.getAttribute('data-param');
-                emailData[paramName] = input.value;
-            });
-            
-            fetch('/email/' + templateId, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'X-API-Key': '` + apiKey + `'
-                },
-                body: JSON.stringify(emailData)
-            })
-            .then(response => {
-                if (response.ok) {
-                    alert('Email envoyé!');
-                } else {
-                    alert('Erreur lors de l\\'envoi');
-                }
-            })
-            .catch(error => {
-                console.error('Erreur:', error);
-                alert('Erreur lors de l\\'envoi');
-            });
+            try {
+                // Construire l'objet avec les paramètres
+                const emailData = { to: email };
+                
+                // Ajouter tous les paramètres du template
+                const paramInputs = document.querySelectorAll('#paramInputs input');
+                paramInputs.forEach(input => {
+                    const paramName = input.getAttribute('data-param');
+                    const paramValue = input.value.trim();
+                    if (!paramValue) {
+                        throw new Error('Le paramètre ' + paramName + ' est requis');
+                    }
+                    emailData[paramName] = paramValue;
+                });
+                
+                // Trouver le bouton qui a déclenché l'action
+                const button = event && event.target ? event.target : document.querySelector('.btn-success');
+                const originalText = button.textContent;
+                button.disabled = true;
+                button.textContent = 'Envoi...';
+
+                fetch('/email/' + encodeURIComponent(templateId), {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-API-Key': document.getElementById('apiKey').textContent
+                    },
+                    body: JSON.stringify(emailData)
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.text().then(text => {
+                            throw new Error(text || 'Erreur serveur');
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    showMessage('testEmailMessage', 'Email envoyé avec succès à ' + email + '!', false);
+                    // Vider les champs de test
+                    document.getElementById('testEmail').value = '';
+                    document.querySelectorAll('#paramInputs input').forEach(input => {
+                        input.value = '';
+                    });
+                })
+                .catch(error => {
+                    console.error('Erreur envoi email:', error);
+                    showMessage('testEmailMessage', 'Erreur: ' + error.message, true);
+                })
+                .finally(() => {
+                    button.disabled = false;
+                    button.textContent = originalText;
+                });
+            } catch (error) {
+                showMessage('testEmailMessage', 'Erreur: ' + error.message, true);
+            }
         }
 
-        loadTemplates();
+        // Charger les templates au démarrage
+        document.addEventListener('DOMContentLoaded', function() {
+            loadTemplates();
+        });
     </script>
 </body>
 </html>`
@@ -902,6 +1039,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 // API Handlers pour la gestion des templates (sécurisés)
 func getTemplatesHandler(w http.ResponseWriter, r *http.Request) {
 	templates := templateManager.GetAllTemplates()
+
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(templates); err != nil {
 		log.Printf("Erreur encoding templates: %v", err)
@@ -916,22 +1054,30 @@ func addTemplateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if template.ID == "" || template.Name == "" {
-		http.Error(w, "ID et nom requis", http.StatusBadRequest)
+	// Validation des champs requis
+	if template.ID == "" || template.Name == "" || template.Subject == "" || template.HTML == "" {
+		http.Error(w, "ID, nom, sujet et HTML sont requis", http.StatusBadRequest)
 		return
 	}
 
-	// Validation des paramètres
-	if template.Subject == "" {
-		template.Subject = "Email de {{.email}}"
-	}
-	if template.HTML == "" {
-		template.HTML = "<p>Contenu par défaut</p>"
+	// Validation de l'ID (caractères autorisés)
+	for _, char := range template.ID {
+		if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || 
+			 (char >= '0' && char <= '9') || char == '_' || char == '-') {
+			http.Error(w, "L'ID ne peut contenir que des lettres, chiffres, tirets et underscores", http.StatusBadRequest)
+			return
+		}
 	}
 
+	// Ajouter le template
 	templateManager.AddTemplate(template)
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "created"})
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status": "success",
+		"message": "Template créé avec succès",
+	})
 }
 
 func deleteTemplateHandler(w http.ResponseWriter, r *http.Request) {
@@ -950,8 +1096,12 @@ func deleteTemplateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	templateManager.DeleteTemplate(templateID)
+	
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
+	json.NewEncoder(w).Encode(map[string]string{
+		"status": "success",
+		"message": "Template supprimé avec succès",
+	})
 }
 
 // Fonction pour nettoyer les sessions expirées (optionnel, pour optimisation)
@@ -974,20 +1124,20 @@ func main() {
 	adminPassword = os.Getenv("ADMIN_PASSWORD")
 	
 	if resendAPIKey == "" {
-		log.Fatal("RESEND_API_KEY est requis")
+		log.Fatal("❌ RESEND_API_KEY est requis")
 	}
 	if fromEmail == "" {
 		fromEmail = "noreply@example.com"
-		log.Printf("FROM_EMAIL non défini, utilisation de: %s", fromEmail)
+		log.Printf("⚠️  FROM_EMAIL non défini, utilisation de: %s", fromEmail)
 	}
 	if adminPassword == "" {
 		adminPassword = "admin123" // Mot de passe par défaut (à changer !)
-		log.Println("ATTENTION: Utilisation du mot de passe admin par défaut. Définissez ADMIN_PASSWORD.")
+		log.Println("⚠️  ATTENTION: Utilisation du mot de passe admin par défaut. Définissez ADMIN_PASSWORD.")
 	}
 
 	// Générer une clé API unique
 	apiKey = generateAPIKey()
-	log.Printf("Clé API générée: %s", apiKey)
+	log.Printf("🔑 Clé API générée: %s", apiKey)
 
 	// Initialiser les sessions admin
 	adminSessions = make(map[string]AdminSession)
@@ -1017,6 +1167,15 @@ func main() {
 	r.HandleFunc("/api/templates", adminAuthMiddleware(addTemplateHandler)).Methods("POST")
 	r.HandleFunc("/api/templates/{id}", adminAuthMiddleware(deleteTemplateHandler)).Methods("DELETE")
 
+	// Handler pour le health check
+	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{
+			"status": "healthy",
+			"timestamp": time.Now().Format(time.RFC3339),
+		})
+	}).Methods("GET")
+
 	// Configuration CORS
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"*"},
@@ -1042,12 +1201,13 @@ func main() {
 		port = "8080"
 	}
 
-	log.Printf("Serveur démarré sur le port %s", port)
-	log.Printf("Interface admin: http://localhost:%s/admin/login", port)
-	log.Printf("Mot de passe admin: %s", adminPassword)
-	log.Printf("FROM_EMAIL: %s", fromEmail)
+	log.Printf("🚀 Serveur démarré sur le port %s", port)
+	log.Printf("🔗 Interface admin: http://localhost:%s/admin/login", port)
+	log.Printf("👤 Mot de passe admin: %s", adminPassword)
+	log.Printf("📧 FROM_EMAIL: %s", fromEmail)
+	log.Printf("🔑 API Key: %s", apiKey)
 	
-	// Graceful shutdown
+	// Serveur avec configuration optimisée
 	server := &http.Server{
 		Addr:         ":" + port,
 		Handler:      handler,

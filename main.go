@@ -1119,26 +1119,26 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
             const statsDiv = document.createElement('div');
             statsDiv.className = 'template';
             statsDiv.innerHTML = `
-                <h3>${template.name} (${template.id})</h3>
+                <h3>` + template.name + ` (` + template.id + `)</h3>
                 <div class="stats-grid">
                     <div class="stats-card">
-                        <div class="stats-number">${stats.total_sent}</div>
+                        <div class="stats-number">` + stats.total_sent + `</div>
                         <div class="stats-label">Total envoyés</div>
                     </div>
                     <div class="stats-card">
-                        <div class="stats-number">${stats.total_success}</div>
+                        <div class="stats-number">` + stats.total_success + `</div>
                         <div class="stats-label">Succès</div>
                     </div>
                     <div class="stats-card">
-                        <div class="stats-number">${stats.total_failed}</div>
+                        <div class="stats-number">` + stats.total_failed + `</div>
                         <div class="stats-label">Échecs</div>
                     </div>
                     <div class="stats-card">
-                        <div class="stats-number">${stats.total_sent > 0 ? Math.round(stats.total_success / stats.total_sent * 100) : 0}%</div>
+                        <div class="stats-number">` + (stats.total_sent > 0 ? Math.round(stats.total_success / stats.total_sent * 100) : 0) + `%</div>
                         <div class="stats-label">Taux de succès</div>
                     </div>
                 </div>
-                ${stats.last_sent_at ? '<p><strong>Dernier envoi:</strong> ' + new Date(stats.last_sent_at).toLocaleString() + '</p>' : '<p>Aucun envoi pour le moment</p>'}
+                ` + (stats.last_sent_at ? '<p><strong>Dernier envoi:</strong> ' + new Date(stats.last_sent_at).toLocaleString() + '</p>' : '<p>Aucun envoi pour le moment</p>') + `
             `;
             
             contentDiv.appendChild(statsDiv);
@@ -1163,7 +1163,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
                     .then(stats => {
                         const statsSpan = div.querySelector('.template-stats');
                         if (statsSpan) {
-                            statsSpan.innerHTML = `${stats.total_sent} envoyés (${stats.total_success} succès)`;
+                            statsSpan.innerHTML = stats.total_sent + ' envoyés (' + stats.total_success + ' succès)';
                         }
                     })
                     .catch(error => {

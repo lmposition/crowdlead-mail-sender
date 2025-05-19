@@ -1251,16 +1251,22 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
             });
         }
 
-        document.getElementById('testTemplateId').addEventListener('change', updateParamInputs);
+        if (document.getElementById('testTemplateId')) {
+            document.getElementById('testTemplateId').addEventListener('change', updateParamInputs);
+        }
 
         function copyApiKey() {
             const apiKey = document.getElementById('apiKey').textContent;
-            navigator.clipboard.writeText(apiKey).then(function() {
-                alert('Clé API copiée !');
-            }).catch(function(err) {
-                console.error('Erreur copie:', err);
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(apiKey).then(function() {
+                    alert('Clé API copiée !');
+                }).catch(function(err) {
+                    console.error('Erreur copie:', err);
+                    prompt('Copiez cette clé API:', apiKey);
+                });
+            } else {
                 prompt('Copiez cette clé API:', apiKey);
-            });
+            }
         }
 
         function logout() {
@@ -1292,7 +1298,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
             }
 
             if (!/^[a-zA-Z0-9_-]+$/.test(templateId)) {
-                showMessage('addTemplateMessage', 'L\\'ID ne peut contenir que des lettres, chiffres, tirets et underscores', true);
+                showMessage('addTemplateMessage', 'L&#39;ID ne peut contenir que des lettres, chiffres, tirets et underscores', true);
                 return;
             }
 

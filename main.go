@@ -1038,6 +1038,713 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
         let currentTemplates = [];
 
         function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            event.target.classList.add('active');
+
+            if (tabName === 'stats') {
+                loadStats();
+            }
+        }
+
+        function showMessage(elementId, message, isError) {
+            if (isError === undefined) isError = false;
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = isError ? 'error-message' : 'success-message';
+            element.style.display = 'block';
+            setTimeout(function() {
+                element.style.display = 'none';
+            }, 5000);
+        }
+
+        function loadTemplates() {
+            const loadingDiv = document.getElementById('templatesLoading');
+            loadingDiv.style.display = 'block';
+            
+            fetch('/api/templates')
+                .then(function(response) {
+                    if (!response.ok) {
+                        throw new Error('Erreur de chargement: ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(function(templates) {
+                    currentTemplates = templates;
+                    displayTemplates(templates);
+                    updateTemplateSelect(templates);
+                    loadingDiv.style.display = 'none';
+                })
+                .catch(function(error) {
+                    console.error('Erreur chargement templates:', error);
+                    document.getElementById('templates').innerHTML = 
+                        '<h2>Templates existants</h2><div class="error-message">Erreur de chargement: ' + error.message + '</div>';
+                    loadingDiv.style.display = 'none';
+                });
+        }
+
+        function loadStats() {
+            const loadingDiv = document.getElementById('statsLoading');
+            const contentDiv = document.getElementById('statsContent');
+            
+            loadingDiv.style.display = 'block';
+            contentDiv.innerHTML = '';
+            
+            currentTemplates.forEach(function(template) {
+                fetch('/api/stats/' + encodeURIComponent(template.id))
+                    .then(function(response) { return response.json(); })
+                    .then(function(stats) {
+                        displayTemplateStats(template, stats);
+                    })
+                    .catch(function(error) {
+                        console.error('Erreur chargement stats pour', template.id, ':', error);
+                    });
+            });
+            
+            loadingDiv.style.display = 'none';
+        }
+
+        function displayTemplateStats(template, stats) {
+            const contentDiv = document.getElementById('statsContent');
+            
+            const statsDiv = document.createElement('div');
+            statsDiv.className = 'template';
+            
+            var successRate = stats.total_sent > 0 ? Math.round(stats.total_success / stats.total_sent * 100) : 0;
+            var lastSentText = stats.last_sent_at ? 
+                '<p><strong>Dernier envoi:</strong> ' + new Date(stats.last_sent_at).toLocaleString() + '</p>' : 
+                '<p>Aucun envoi pour le moment</p>';
+            
+            statsDiv.innerHTML = 
+                '<h3>' + template.name + ' (' + template.id + ')</h3>' +
+                '<div class="stats-grid">' +
+                    '<div class="stats-card">' +
+                        '<div class="stats-number">' + stats.total_sent + '</div>' +
+                        '<div class="stats-label">Total envoyés</div>' +
+                    '</div>' +
+                    '<div class="stats-card">' +
+                        '<div class="stats-number">' + stats.total_success + '</div>' +
+                        '<div class="stats-label">Succès</div>' +
+                    '</div>' +
+                    '<div class="stats-card">' +
+                        '<div class="stats-number">' + stats.total_failed + '</div>' +
+                        '<div class="stats-label">Échecs</div>' +
+                    '</div>' +
+                    '<div class="stats-card">' +
+                        '<div class="stats-number">' + successRate + '%</div>' +
+                        '<div class="stats-label">Taux de succès</div>' +
+                    '</div>' +
+                '</div>' +
+                lastSentText;
+            
+            contentDiv.appendChild(statsDiv);
+        }
+
+        function displayTemplates(templates) {
+            const container = document.getElementById('templates');
+            container.innerHTML = '<h2>Templates existants</h2>';
+            
+            if (templates.length === 0) {
+                container.innerHTML += '<p>Aucun template trouvé. Créez votre premier template ci-dessus!</p>';
+                return;
+            }
+            
+            templates.forEach(function(template) {
+                const div = document.createElement('div');
+                div.className = 'template';
+                
+                fetch('/api/stats/' + encodeURIComponent(template.id))
+                    .then(function(response) { return response.json(); })
+                    .then(function(stats) {
+                        const statsSpan = div.querySelector('.template-stats');
+                        if (statsSpan) {
+                            statsSpan.innerHTML = stats.total_sent + ' envoyés (' + stats.total_success + ' succès)';
+                        }
+                    })
+                    .catch(function(error) {
+                        console.error('Erreur stats:', error);
+                    });
+                
+                const exampleParams = template.params.map(function(param) {
+                    return '"' + param + '": "valeur"';
+                }).join(',\\n    ');
+                
+                const curlExample = 'curl -X POST ' + window.location.origin + '/email/' + template.id + ' \\\\\\n' +
+                    '  -H "Content-Type: application/json" \\\\\\n' +
+                    '  -H "X-API-Key: ' + document.getElementById('apiKey').textContent + '" \\\\\\n' +
+                    '  -d \\'{\\n' +
+                    '    "to": "user@example.com"' + (exampleParams ? ',\\n' + '    ' + exampleParams : '') + '\\n' +
+                    '  }\\'';
+                
+                div.innerHTML = 
+                    '<span class="template-stats">Chargement stats...</span>' +
+                    '<h3>' + template.name + ' (' + template.id + ')</h3>' +
+                    '<p><strong>Sujet:</strong> ' + template.subject + '</p>' +
+                    '<p><strong>Paramètres:</strong> ' + template.params.join(', ') + '</p>' +
+                    (template.from_email ? '<p><strong>Email expéditeur:</strong> ' + template.from_email + '</p>' : '') +
+                    '<p><strong>HTML:</strong></p>' +
+                    '<pre>' + template.html + '</pre>' +
+                    '<p><strong>Exemple d\\'appel API:</strong></p>' +
+                    '<pre>' + curlExample + '</pre>' +
+                    '<button class="btn-info" onclick="showTemplateStats(\\'' + template.id + '\\')">Voir Stats</button>' +
+                    '<button class="btn-danger" onclick="deleteTemplate(\\'' + template.id + '\\')">Supprimer</button>';
+                container.appendChild(div);
+            });
+        }
+
+        function showTemplateStats(templateId) {
+            showTab('stats');
+            setTimeout(function() {
+                const statsElements = document.querySelectorAll('#statsContent .template h3');
+                for (let element of statsElements) {
+                    if (element.textContent.indexOf('(' + templateId + ')') !== -1) {
+                        element.scrollIntoView({ behavior: 'smooth' });
+                        element.parentElement.style.border = '2px solid #007bff';
+                        setTimeout(function() {
+                            element.parentElement.style.border = '1px solid #ddd';
+                        }, 3000);
+                        break;
+                    }
+                }
+            }, 100);
+        }
+
+        function updateTemplateSelect(templates) {
+            const select = document.getElementById('testTemplateId');
+            select.innerHTML = '<option value="">Sélectionner un template</option>';
+            
+            templates.forEach(function(template) {
+                const option = document.createElement('option');
+                option.value = template.id;
+                option.textContent = template.name;
+                select.appendChild(option);
+            });
+        }
+
+        function updateParamInputs() {
+            const templateId = document.getElementById('testTemplateId').value;
+            const paramInputsDiv = document.getElementById('paramInputs');
+            
+            if (!templateId) {
+                paramInputsDiv.innerHTML = '';
+                return;
+            }
+            
+            const template = currentTemplates.find(function(t) { return t.id === templateId; });
+            if (!template) return;
+            
+            paramInputsDiv.innerHTML = '';
+            template.params.forEach(function(param) {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.placeholder = param;
+                input.id = 'param_' + param;
+                input.setAttribute('data-param', param);
+                input.required = true;
+                paramInputsDiv.appendChild(input);
+            });
+        }
+
+        document.getElementById('testTemplateId').addEventListener('change', updateParamInputs);
+
+        function copyApiKey() {
+            const apiKey = document.getElementById('apiKey').textContent;
+            navigator.clipboard.writeText(apiKey).then(function() {
+                alert('Clé API copiée !');
+            }).catch(function(err) {
+                console.error('Erreur copie:', err);
+                prompt('Copiez cette clé API:', apiKey);
+            });
+        }
+
+        function logout() {
+            fetch('/admin/logout', { method: 'POST' })
+                .then(function() {
+                    window.location.href = '/admin/login';
+                })
+                .catch(function(error) {
+                    console.error('Erreur logout:', error);
+                    window.location.href = '/admin/login';
+                });
+        }
+
+        function addTemplate(event) {
+            if (event && event.preventDefault) {
+                event.preventDefault();
+            }
+
+            const templateId = document.getElementById('templateId').value.trim();
+            const templateName = document.getElementById('templateName').value.trim();
+            const templateSubject = document.getElementById('templateSubject').value.trim();
+            const templateHTML = document.getElementById('templateHTML').value.trim();
+            const templateParams = document.getElementById('templateParams').value.trim();
+            const templateFromEmail = document.getElementById('templateFromEmail').value.trim();
+
+            if (!templateId || !templateName || !templateSubject || !templateHTML) {
+                showMessage('addTemplateMessage', 'Tous les champs marqués comme requis doivent être remplis', true);
+                return;
+            }
+
+            if (!/^[a-zA-Z0-9_-]+$/.test(templateId)) {
+                showMessage('addTemplateMessage', 'L\\'ID ne peut contenir que des lettres, chiffres, tirets et underscores', true);
+                return;
+            }
+
+            const template = {
+                id: templateId,
+                name: templateName,
+                subject: templateSubject,
+                html: templateHTML,
+                params: templateParams ? templateParams.split(',').map(function(p) { return p.trim(); }).filter(function(p) { return p; }) : []
+            };
+
+            if (templateFromEmail) {
+                template.from_email = templateFromEmail;
+            }
+
+            const button = event && event.target ? event.target : document.querySelector('.btn-primary');
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'Ajout...';
+
+            fetch('/api/templates', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(template)
+            })
+            .then(function(response) {
+                if (!response.ok) {
+                    return response.text().then(function(text) {
+                        throw new Error(text || 'Erreur serveur');
+                    });
+                }
+                return response.json();
+            })
+            .then(function(data) {
+                showMessage('addTemplateMessage', 'Template ajouté avec succès!', false);
+                loadTemplates();
+                document.getElementById('templateId').value = '';
+                document.getElementById('templateName').value = '';
+                document.getElementById('templateSubject').value = '';
+                document.getElementById('templateHTML').value = '';
+                document.getElementById('templateParams').value = '';
+                document.getElementById('templateFromEmail').value = '';
+            })
+            .catch(function(error) {
+                console.error('Erreur ajout template:', error);
+                showMessage('addTemplateMessage', 'Erreur: ' + error.message, true);
+            })
+            .finally(function() {
+                button.disabled = false;
+                button.textContent = originalText;
+            });
+        }
+
+        function deleteTemplate(id) {
+            if (!confirm('Êtes-vous sûr de vouloir supprimer ce template? Cela supprimera aussi tous les logs et statistiques associés.')) {
+                return;
+            }
+
+            fetch('/api/templates/' + encodeURIComponent(id), { 
+                method: 'DELETE' 
+            })
+            .then(function(response) {
+                if (!response.ok) {
+                    return response.text().then(function(text) {
+                        throw new Error(text || 'Erreur serveur');
+                    });
+                }
+                return response.json();
+            })
+            .then(function(data) {
+                loadTemplates();
+                alert('Template supprimé avec succès!');
+            })
+            .catch(function(error) {
+                console.error('Erreur suppression template:', error);
+                alert('Erreur: ' + error.message);
+            });
+        }
+
+        function testEmail(event) {
+            if (event && event.preventDefault) {
+                event.preventDefault();
+            }
+
+            const templateId = document.getElementById('testTemplateId').value;
+            const email = document.getElementById('testEmail').value.trim();
+            
+            if (!templateId || !email) {
+                showMessage('testEmailMessage', 'Veuillez sélectionner un template et saisir un email', true);
+                return;
+            }
+            
+            try {
+                const emailData = { to: email };
+                
+                const paramInputs = document.querySelectorAll('#paramInputs input');
+                paramInputs.forEach(function(input) {
+                    const paramName = input.getAttribute('data-param');
+                    const paramValue = input.value.trim();
+                    if (!paramValue) {
+                        throw new Error('Le paramètre ' + paramName + ' est requis');
+                    }
+                    emailData[paramName] = paramValue;
+                });
+                
+                const button = event && event.target ? event.target : document.querySelector('.btn-success');
+                const originalText = button.textContent;
+                button.disabled = true;
+                button.textContent = 'Envoi...';
+
+                fetch('/email/' + encodeURIComponent(templateId), {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-API-Key': document.getElementById('apiKey').textContent
+                    },
+                    body: JSON.stringify(emailData)
+                })
+                .then(function(response) {
+                    if (!response.ok) {
+                        return response.text().then(function(text) {
+                            throw new Error(text || 'Erreur serveur');
+                        });
+                    }
+                    return response.json();
+                })
+                .then(function(data) {
+                    showMessage('testEmailMessage', 'Email envoyé avec succès à ' + email + '!', false);
+                    document.getElementById('testEmail').value = '';
+                    document.querySelectorAll('#paramInputs input').forEach(function(input) {
+                        input.value = '';
+                    });
+                    setTimeout(function() {
+                        loadTemplates();
+                    }, 1000);
+                })
+                .catch(function(error) {
+                    console.error('Erreur envoi email:', error);
+                    showMessage('testEmailMessage', 'Erreur: ' + error.message, true);
+                })
+                .finally(function() {
+                    button.disabled = false;
+                    button.textContent = originalText;
+                });
+            } catch (error) {
+                showMessage('testEmailMessage', 'Erreur: ' + error.message, true);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadTemplates();
+        });
+    </script>
+</body>
+</html>`
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprint(w, html)
+}
+
+        function updateTemplateSelect(templates) {
+            const select = document.getElementById('testTemplateId');
+            select.innerHTML = '<option value="">Sélectionner un template</option>';
+            
+            templates.forEach(template => {
+                const option = document.createElement('option');
+                option.value = template.id;
+                option.textContent = template.name;
+                select.appendChild(option);
+            });
+        }
+
+        function updateParamInputs() {
+            const templateId = document.getElementById('testTemplateId').value;
+            const paramInputsDiv = document.getElementById('paramInputs');
+            
+            if (!templateId) {
+                paramInputsDiv.innerHTML = '';
+                return;
+            }
+            
+            const template = currentTemplates.find(t => t.id === templateId);
+            if (!template) return;
+            
+            paramInputsDiv.innerHTML = '';
+            template.params.forEach(param => {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.placeholder = param;
+                input.id = 'param_' + param;
+                input.setAttribute('data-param', param);
+                input.required = true;
+                paramInputsDiv.appendChild(input);
+            });
+        }
+
+        document.getElementById('testTemplateId').addEventListener('change', updateParamInputs);
+
+        function copyApiKey() {
+            const apiKey = document.getElementById('apiKey').textContent;
+            navigator.clipboard.writeText(apiKey).then(() => {
+                alert('Clé API copiée !');
+            }).catch(err => {
+                console.error('Erreur copie:', err);
+                prompt('Copiez cette clé API:', apiKey);
+            });
+        }
+
+        function logout() {
+            fetch('/admin/logout', { method: 'POST' })
+                .then(() => {
+                    window.location.href = '/admin/login';
+                })
+                .catch(error => {
+                    console.error('Erreur logout:', error);
+                    window.location.href = '/admin/login';
+                });
+        }
+
+        function addTemplate(event) {
+            if (event && event.preventDefault) {
+                event.preventDefault();
+            }
+
+            const templateId = document.getElementById('templateId').value.trim();
+            const templateName = document.getElementById('templateName').value.trim();
+            const templateSubject = document.getElementById('templateSubject').value.trim();
+            const templateHTML = document.getElementById('templateHTML').value.trim();
+            const templateParams = document.getElementById('templateParams').value.trim();
+            const templateFromEmail = document.getElementById('templateFromEmail').value.trim();
+
+            if (!templateId || !templateName || !templateSubject || !templateHTML) {
+                showMessage('addTemplateMessage', 'Tous les champs marqués comme requis doivent être remplis', true);
+                return;
+            }
+
+            if (!/^[a-zA-Z0-9_-]+$/.test(templateId)) {
+                showMessage('addTemplateMessage', 'L\\'ID ne peut contenir que des lettres, chiffres, tirets et underscores', true);
+                return;
+            }
+
+            const template = {
+                id: templateId,
+                name: templateName,
+                subject: templateSubject,
+                html: templateHTML,
+                params: templateParams ? templateParams.split(',').map(p => p.trim()).filter(p => p) : []
+            };
+
+            if (templateFromEmail) {
+                template.from_email = templateFromEmail;
+            }
+
+            const button = event && event.target ? event.target : document.querySelector('.btn-primary');
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'Ajout...';
+
+            fetch('/api/templates', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(template)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        throw new Error(text || 'Erreur serveur');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                showMessage('addTemplateMessage', 'Template ajouté avec succès!', false);
+                loadTemplates();
+                document.getElementById('templateId').value = '';
+                document.getElementById('templateName').value = '';
+                document.getElementById('templateSubject').value = '';
+                document.getElementById('templateHTML').value = '';
+                document.getElementById('templateParams').value = '';
+                document.getElementById('templateFromEmail').value = '';
+            })
+            .catch(error => {
+                console.error('Erreur ajout template:', error);
+                showMessage('addTemplateMessage', 'Erreur: ' + error.message, true);
+            })
+            .finally(() => {
+                button.disabled = false;
+                button.textContent = originalText;
+            });
+        }
+
+        function deleteTemplate(id) {
+            if (!confirm('Êtes-vous sûr de vouloir supprimer ce template? Cela supprimera aussi tous les logs et statistiques associés.')) {
+                return;
+            }
+
+            fetch('/api/templates/' + encodeURIComponent(id), { 
+                method: 'DELETE' 
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        throw new Error(text || 'Erreur serveur');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                loadTemplates();
+                alert('Template supprimé avec succès!');
+            })
+            .catch(error => {
+                console.error('Erreur suppression template:', error);
+                alert('Erreur: ' + error.message);
+            });
+        }
+
+        function testEmail(event) {
+            if (event && event.preventDefault) {
+                event.preventDefault();
+            }
+
+            const templateId = document.getElementById('testTemplateId').value;
+            const email = document.getElementById('testEmail').value.trim();
+            
+            if (!templateId || !email) {
+                showMessage('testEmailMessage', 'Veuillez sélectionner un template et saisir un email', true);
+                return;
+            }
+            
+            try {
+                const emailData = { to: email };
+                
+                const paramInputs = document.querySelectorAll('#paramInputs input');
+                paramInputs.forEach(input => {
+                    const paramName = input.getAttribute('data-param');
+                    const paramValue = input.value.trim();
+                    if (!paramValue) {
+                        throw new Error('Le paramètre ' + paramName + ' est requis');
+                    }
+                    emailData[paramName] = paramValue;
+                });
+                
+                const button = event && event.target ? event.target : document.querySelector('.btn-success');
+                const originalText = button.textContent;
+                button.disabled = true;
+                button.textContent = 'Envoi...';
+
+                fetch('/email/' + encodeURIComponent(templateId), {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-API-Key': document.getElementById('apiKey').textContent
+                    },
+                    body: JSON.stringify(emailData)
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.text().then(text => {
+                            throw new Error(text || 'Erreur serveur');
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    showMessage('testEmailMessage', 'Email envoyé avec succès à ' + email + '!', false);
+                    document.getElementById('testEmail').value = '';
+                    document.querySelectorAll('#paramInputs input').forEach(input => {
+                        input.value = '';
+                    });
+                    setTimeout(() => {
+                        loadTemplates();
+                    }, 1000);
+                })
+                .catch(error => {
+                    console.error('Erreur envoi email:', error);
+                    showMessage('testEmailMessage', 'Erreur: ' + error.message, true);
+                })
+                .finally(() => {
+                    button.disabled = false;
+                    button.textContent = originalText;
+                });
+            } catch (error) {
+                showMessage('testEmailMessage', 'Erreur: ' + error.message, true);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadTemplates();
+        });
+    </script>
+</body>
+</html>`
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprint(w, html)
+}<button class="btn-secondary" onclick="logout()">Déconnexion</button>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('templates')">Templates</button>
+            <button class="tab" onclick="showTab('stats')">Statistiques</button>
+        </div>
+
+        <div id="templatesTab" class="tab-content active">
+            <div class="api-key-section">
+                <h3>Clé API</h3>
+                <p>Utilisez cette clé API dans le header <code>X-API-Key</code> pour envoyer des emails :</p>
+                <div class="api-key" id="apiKey">` + apiKey + `</div>
+                <button class="btn-secondary" onclick="copyApiKey()">Copier</button>
+            </div>
+            
+            <div class="form-group">
+                <h2>Ajouter un nouveau template</h2>
+                <input type="text" id="templateId" placeholder="ID du template (ex: welcome)" required>
+                <input type="text" id="templateName" placeholder="Nom du template" required>
+                <input type="text" id="templateSubject" placeholder="Sujet (ex: Bienvenue {{.first_name}}!)" required>
+                <textarea id="templateHTML" rows="5" placeholder="HTML du template (ex: <h1>Bonjour {{.first_name}}!</h1>)" required></textarea>
+                <input type="text" id="templateParams" placeholder="Paramètres séparés par des virgules (ex: first_name,last_name)">
+                <input type="email" id="templateFromEmail" placeholder="Email expéditeur (optionnel)">
+                <button class="btn-primary" onclick="addTemplate(event)">Ajouter Template</button>
+                <div id="addTemplateMessage"></div>
+            </div>
+
+            <div class="form-group">
+                <h2>Tester un email</h2>
+                <select id="testTemplateId">
+                    <option value="">Sélectionner un template</option>
+                </select>
+                <input type="email" id="testEmail" placeholder="Email destinataire" required>
+                <div id="paramInputs"></div>
+                <button class="btn-success" onclick="testEmail()">Envoyer Test</button>
+                <div id="testEmailMessage"></div>
+            </div>
+
+            <div id="templates">
+                <h2>Templates existants</h2>
+                <div id="templatesLoading">Chargement...</div>
+            </div>
+        </div>
+
+        <div id="statsTab" class="tab-content">
+            <h2>Statistiques d'envoi</h2>
+            <div id="statsLoading">Chargement des statistiques...</div>
+            <div id="statsContent"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentTemplates = [];
+
+        function showTab(tabName) {
             // Hide all tab contents
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.remove('active');

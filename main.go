@@ -3,18 +3,23 @@ package main
 import (
 	"bytes"
 	"crypto/rand"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
+	_ "github.com/lib/pq"           // PostgreSQL driver
+	_ "github.com/mattn/go-sqlite3" // SQLite driver
 )
 
 // Structure pour les templates d'email
@@ -41,69 +46,324 @@ type AdminSession struct {
 	Expires time.Time
 }
 
-// Gestionnaire des templates
+// Gestionnaire des templates avec base de données
 type TemplateManager struct {
-	templates map[string]EmailTemplate
-	mutex     sync.RWMutex
+	db    *sql.DB
+	mutex sync.RWMutex
 }
 
-func NewTemplateManager() *TemplateManager {
-	tm := &TemplateManager{
-		templates: make(map[string]EmailTemplate),
-	}
-	
-	// Template par défaut pour welcome
-	tm.templates["welcome"] = EmailTemplate{
-		ID:      "welcome",
-		Name:    "Welcome Email",
-		Subject: "Bienvenue {{.first_name}}!",
-		HTML:    `<h1>Bienvenue {{.first_name}}!</h1><p>Nous sommes ravis de vous avoir parmi nous.</p>`,
-		Params:  []string{"first_name"},
-	}
-	
-	return tm
+// Gestionnaire des sessions avec base de données
+type SessionManager struct {
+	db    *sql.DB
+	mutex sync.RWMutex
+}
+
+func NewTemplateManager(database *sql.DB) *TemplateManager {
+	return &TemplateManager{db: database}
+}
+
+func NewSessionManager(database *sql.DB) *SessionManager {
+	return &SessionManager{db: database}
 }
 
 func (tm *TemplateManager) GetTemplate(id string) (EmailTemplate, bool) {
 	tm.mutex.RLock()
 	defer tm.mutex.RUnlock()
-	tpl, exists := tm.templates[id]
-	return tpl, exists
+
+	var template EmailTemplate
+	var paramsStr string
+	
+	query := `SELECT id, name, subject, html, params, from_email FROM email_templates WHERE id = $1`
+	err := tm.db.QueryRow(query, id).Scan(
+		&template.ID, &template.Name, &template.Subject, 
+		&template.HTML, &paramsStr, &template.FromEmail,
+	)
+	
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return template, false
+		}
+		log.Printf("Erreur récupération template: %v", err)
+		return template, false
+	}
+	
+	// Parser les paramètres
+	if paramsStr != "" {
+		template.Params = strings.Split(paramsStr, ",")
+	}
+	
+	return template, true
 }
 
-func (tm *TemplateManager) AddTemplate(template EmailTemplate) {
+func (tm *TemplateManager) AddTemplate(template EmailTemplate) error {
 	tm.mutex.Lock()
 	defer tm.mutex.Unlock()
-	tm.templates[template.ID] = template
+
+	paramsStr := strings.Join(template.Params, ",")
+	
+	query := `INSERT INTO email_templates (id, name, subject, html, params, from_email, created_at) 
+			  VALUES ($1, $2, $3, $4, $5, $6, $7)
+			  ON CONFLICT (id) DO UPDATE SET 
+			  name = $2, subject = $3, html = $4, params = $5, from_email = $6, updated_at = $7`
+	
+	now := time.Now()
+	_, err := tm.db.Exec(query, template.ID, template.Name, template.Subject, 
+						template.HTML, paramsStr, template.FromEmail, now)
+	
+	if err != nil {
+		log.Printf("Erreur ajout template: %v", err)
+		return fmt.Errorf("erreur ajout template: %w", err)
+	}
+	
+	return nil
 }
 
-func (tm *TemplateManager) GetAllTemplates() []EmailTemplate {
+func (tm *TemplateManager) GetAllTemplates() ([]EmailTemplate, error) {
 	tm.mutex.RLock()
 	defer tm.mutex.RUnlock()
-	
-	var templates []EmailTemplate
-	for _, tpl := range tm.templates {
-		templates = append(templates, tpl)
+
+	query := `SELECT id, name, subject, html, params, from_email FROM email_templates ORDER BY name`
+	rows, err := tm.db.Query(query)
+	if err != nil {
+		log.Printf("Erreur récupération templates: %v", err)
+		return nil, fmt.Errorf("erreur récupération templates: %w", err)
 	}
-	return templates
+	defer rows.Close()
+
+	var templates []EmailTemplate
+	for rows.Next() {
+		var template EmailTemplate
+		var paramsStr string
+		
+		err := rows.Scan(&template.ID, &template.Name, &template.Subject, 
+						&template.HTML, &paramsStr, &template.FromEmail)
+		if err != nil {
+			log.Printf("Erreur scan template: %v", err)
+			continue
+		}
+		
+		// Parser les paramètres
+		if paramsStr != "" {
+			template.Params = strings.Split(paramsStr, ",")
+		}
+		
+		templates = append(templates, template)
+	}
+	
+	return templates, nil
 }
 
-func (tm *TemplateManager) DeleteTemplate(id string) {
+func (tm *TemplateManager) DeleteTemplate(id string) error {
 	tm.mutex.Lock()
 	defer tm.mutex.Unlock()
-	delete(tm.templates, id)
+
+	query := `DELETE FROM email_templates WHERE id = $1`
+	result, err := tm.db.Exec(query, id)
+	if err != nil {
+		log.Printf("Erreur suppression template: %v", err)
+		return fmt.Errorf("erreur suppression template: %w", err)
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("erreur vérification suppression: %w", err)
+	}
+	
+	if rowsAffected == 0 {
+		return fmt.Errorf("template non trouvé")
+	}
+	
+	return nil
+}
+
+func (sm *SessionManager) CreateSession(token string, expires time.Time) error {
+	sm.mutex.Lock()
+	defer sm.mutex.Unlock()
+
+	query := `INSERT INTO admin_sessions (token, expires_at) VALUES ($1, $2)
+			  ON CONFLICT (token) DO UPDATE SET expires_at = $2`
+	_, err := sm.db.Exec(query, token, expires)
+	if err != nil {
+		log.Printf("Erreur création session: %v", err)
+		return fmt.Errorf("erreur création session: %w", err)
+	}
+	return nil
+}
+
+func (sm *SessionManager) GetSession(token string) (AdminSession, bool) {
+	sm.mutex.RLock()
+	defer sm.mutex.RUnlock()
+
+	var session AdminSession
+	query := `SELECT token, expires_at FROM admin_sessions WHERE token = $1 AND expires_at > $2`
+	err := sm.db.QueryRow(query, token, time.Now()).Scan(&session.Token, &session.Expires)
+	
+	if err != nil {
+		if err != sql.ErrNoRows {
+			log.Printf("Erreur récupération session: %v", err)
+		}
+		return session, false
+	}
+	
+	return session, true
+}
+
+func (sm *SessionManager) DeleteSession(token string) error {
+	sm.mutex.Lock()
+	defer sm.mutex.Unlock()
+
+	query := `DELETE FROM admin_sessions WHERE token = $1`
+	_, err := sm.db.Exec(query, token)
+	if err != nil {
+		log.Printf("Erreur suppression session: %v", err)
+		return fmt.Errorf("erreur suppression session: %w", err)
+	}
+	return nil
+}
+
+func (sm *SessionManager) CleanupExpiredSessions() {
+	sm.mutex.Lock()
+	defer sm.mutex.Unlock()
+
+	query := `DELETE FROM admin_sessions WHERE expires_at <= $1`
+	result, err := sm.db.Exec(query, time.Now())
+	if err != nil {
+		log.Printf("Erreur nettoyage sessions: %v", err)
+		return
+	}
+	
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected > 0 {
+		log.Printf("Nettoyé %d sessions expirées", rowsAffected)
+	}
 }
 
 // Variables globales
 var (
+	db              *sql.DB
 	templateManager *TemplateManager
+	sessionManager  *SessionManager
 	resendAPIKey    string
 	fromEmail       string
 	adminPassword   string
 	apiKey          string
-	adminSessions   map[string]AdminSession
-	sessionMutex    sync.RWMutex
 )
+
+// Initialiser la base de données
+func initDatabase() error {
+	databaseURL := os.Getenv("DATABASE_URL")
+	
+	if databaseURL == "" {
+		// Fallback vers SQLite si pas de DATABASE_URL
+		databaseURL = "sqlite3://./email_manager.db"
+		log.Println("⚠️  DATABASE_URL non défini, utilisation de SQLite par défaut")
+	}
+
+	var err error
+	var driverName string
+	var dataSourceName string
+
+	// Parser l'URL de la base de données
+	u, err := url.Parse(databaseURL)
+	if err != nil {
+		return fmt.Errorf("erreur parsing DATABASE_URL: %w", err)
+	}
+
+	switch u.Scheme {
+	case "postgres", "postgresql":
+		driverName = "postgres"
+		dataSourceName = databaseURL
+	case "sqlite3", "sqlite":
+		driverName = "sqlite3"
+		// Extraire le chemin du fichier SQLite
+		if u.Path != "" {
+			dataSourceName = u.Path
+		} else if u.Host != "" {
+			dataSourceName = u.Host + u.Path
+		} else {
+			dataSourceName = "./email_manager.db"
+		}
+	default:
+		return fmt.Errorf("driver de base de données non supporté: %s", u.Scheme)
+	}
+
+	// Ouvrir la connexion à la base de données
+	db, err = sql.Open(driverName, dataSourceName)
+	if err != nil {
+		return fmt.Errorf("erreur ouverture base de données: %w", err)
+	}
+
+	// Tester la connexion
+	if err = db.Ping(); err != nil {
+		return fmt.Errorf("erreur connexion base de données: %w", err)
+	}
+
+	// Créer les tables
+	if err = createTables(driverName); err != nil {
+		return fmt.Errorf("erreur création tables: %w", err)
+	}
+
+	log.Printf("✅ Base de données initialisée (%s)", driverName)
+	return nil
+}
+
+func createTables(driverName string) error {
+	// SQL compatible SQLite et PostgreSQL
+	var createTemplatesTable string
+	var createSessionsTable string
+
+	if driverName == "postgres" {
+		createTemplatesTable = `
+		CREATE TABLE IF NOT EXISTS email_templates (
+			id VARCHAR(255) PRIMARY KEY,
+			name VARCHAR(255) NOT NULL,
+			subject TEXT NOT NULL,
+			html TEXT NOT NULL,
+			params TEXT,
+			from_email VARCHAR(255),
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`
+		
+		createSessionsTable = `
+		CREATE TABLE IF NOT EXISTS admin_sessions (
+			token VARCHAR(255) PRIMARY KEY,
+			expires_at TIMESTAMP NOT NULL
+		)`
+	} else {
+		// SQLite
+		createTemplatesTable = `
+		CREATE TABLE IF NOT EXISTS email_templates (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			subject TEXT NOT NULL,
+			html TEXT NOT NULL,
+			params TEXT,
+			from_email TEXT,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`
+		
+		createSessionsTable = `
+		CREATE TABLE IF NOT EXISTS admin_sessions (
+			token TEXT PRIMARY KEY,
+			expires_at DATETIME NOT NULL
+		)`
+	}
+
+	// Créer la table des templates
+	if _, err := db.Exec(createTemplatesTable); err != nil {
+		return fmt.Errorf("erreur création table email_templates: %w", err)
+	}
+
+	// Créer la table des sessions
+	if _, err := db.Exec(createSessionsTable); err != nil {
+		return fmt.Errorf("erreur création table admin_sessions: %w", err)
+	}
+
+	log.Println("✅ Tables créées avec succès")
+	return nil
+}
 
 // Générer une clé API aléatoirement
 func generateAPIKey() string {
@@ -136,16 +396,11 @@ func adminAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		sessionMutex.RLock()
-		session, exists := adminSessions[cookie.Value]
-		sessionMutex.RUnlock()
-
+		session, exists := sessionManager.GetSession(cookie.Value)
 		if !exists || time.Now().After(session.Expires) {
 			// Nettoyer la session expirée
 			if exists {
-				sessionMutex.Lock()
-				delete(adminSessions, cookie.Value)
-				sessionMutex.Unlock()
+				sessionManager.DeleteSession(cookie.Value)
 			}
 			http.Error(w, "Session expirée", http.StatusUnauthorized)
 			return
@@ -516,12 +771,11 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	sessionToken := generateAPIKey()
 	expires := time.Now().Add(24 * time.Hour)
 
-	sessionMutex.Lock()
-	adminSessions[sessionToken] = AdminSession{
-		Token:   sessionToken,
-		Expires: expires,
+	if err := sessionManager.CreateSession(sessionToken, expires); err != nil {
+		log.Printf("Erreur création session: %v", err)
+		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		return
 	}
-	sessionMutex.Unlock()
 
 	// Définir le cookie
 	cookie := &http.Cookie{
@@ -542,9 +796,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("admin_session")
 	if err == nil {
-		sessionMutex.Lock()
-		delete(adminSessions, cookie.Value)
-		sessionMutex.Unlock()
+		sessionManager.DeleteSession(cookie.Value)
 	}
 
 	// Supprimer le cookie
@@ -1038,7 +1290,12 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 
 // API Handlers pour la gestion des templates (sécurisés)
 func getTemplatesHandler(w http.ResponseWriter, r *http.Request) {
-	templates := templateManager.GetAllTemplates()
+	templates, err := templateManager.GetAllTemplates()
+	if err != nil {
+		log.Printf("Erreur récupération templates: %v", err)
+		http.Error(w, "Erreur interne", http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(templates); err != nil {
@@ -1069,8 +1326,12 @@ func addTemplateHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Ajouter le template
-	templateManager.AddTemplate(template)
+	// Ajouter le template en base
+	if err := templateManager.AddTemplate(template); err != nil {
+		log.Printf("Erreur ajout template: %v", err)
+		http.Error(w, "Erreur ajout template: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -1089,32 +1350,18 @@ func deleteTemplateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Vérifier que le template existe
-	if _, exists := templateManager.GetTemplate(templateID); !exists {
-		http.Error(w, "Template non trouvé", http.StatusNotFound)
+	// Supprimer le template
+	if err := templateManager.DeleteTemplate(templateID); err != nil {
+		log.Printf("Erreur suppression template: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	
-	templateManager.DeleteTemplate(templateID)
 	
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"status": "success",
 		"message": "Template supprimé avec succès",
 	})
-}
-
-// Fonction pour nettoyer les sessions expirées (optionnel, pour optimisation)
-func cleanupExpiredSessions() {
-	sessionMutex.Lock()
-	defer sessionMutex.Unlock()
-	
-	now := time.Now()
-	for token, session := range adminSessions {
-		if now.After(session.Expires) {
-			delete(adminSessions, token)
-		}
-	}
 }
 
 func main() {
@@ -1131,19 +1378,43 @@ func main() {
 		log.Printf("⚠️  FROM_EMAIL non défini, utilisation de: %s", fromEmail)
 	}
 	if adminPassword == "" {
-		adminPassword = "admin123" // Mot de passe par défaut (à changer !)
+		adminPassword = "admin123"
 		log.Println("⚠️  ATTENTION: Utilisation du mot de passe admin par défaut. Définissez ADMIN_PASSWORD.")
 	}
+
+	// Initialiser la base de données
+	if err := initDatabase(); err != nil {
+		log.Fatal("❌ Erreur initialisation base de données:", err)
+	}
+	defer db.Close()
 
 	// Générer une clé API unique
 	apiKey = generateAPIKey()
 	log.Printf("🔑 Clé API générée: %s", apiKey)
 
-	// Initialiser les sessions admin
-	adminSessions = make(map[string]AdminSession)
+	// Initialiser les gestionnaires
+	templateManager = NewTemplateManager(db)
+	sessionManager = NewSessionManager(db)
 
-	// Initialiser le gestionnaire de templates
-	templateManager = NewTemplateManager()
+	// Vérifier qu'il y a au moins un template par défaut
+	templates, err := templateManager.GetAllTemplates()
+	if err != nil {
+		log.Printf("⚠️  Erreur vérification templates: %v", err)
+	} else if len(templates) == 0 {
+		log.Println("📝 Aucun template trouvé, création du template par défaut...")
+		defaultTemplate := EmailTemplate{
+			ID:      "welcome",
+			Name:    "Welcome Email",
+			Subject: "Bienvenue {{.first_name}}!",
+			HTML:    "<h1>Bienvenue {{.first_name}}!</h1><p>Nous sommes ravis de vous avoir parmi nous.</p>",
+			Params:  []string{"first_name"},
+		}
+		if err := templateManager.AddTemplate(defaultTemplate); err != nil {
+			log.Printf("⚠️  Erreur création template par défaut: %v", err)
+		} else {
+			log.Println("✅ Template par défaut créé")
+		}
+	}
 
 	// Configurer les routes
 	r := mux.NewRouter()
@@ -1191,7 +1462,7 @@ func main() {
 		ticker := time.NewTicker(1 * time.Hour)
 		defer ticker.Stop()
 		for range ticker.C {
-			cleanupExpiredSessions()
+			sessionManager.CleanupExpiredSessions()
 		}
 	}()
 

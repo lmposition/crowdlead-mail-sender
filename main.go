@@ -1224,24 +1224,28 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
             
             <div class="form-group">
                 <h2>Ajouter un nouveau template</h2>
-                <input type="text" id="templateId" placeholder="ID du template (ex: welcome)" required>
-                <input type="text" id="templateName" placeholder="Nom du template" required>
-                <input type="text" id="templateSubject" placeholder="Sujet (ex: Bienvenue {{.first_name}}!)" required>
-                <textarea id="templateHTML" rows="5" placeholder="HTML du template (ex: <h1>Bonjour {{.first_name}}!</h1>)" required></textarea>
-                <input type="text" id="templateParams" placeholder="Paramètres séparés par des virgules (ex: first_name,last_name)">
-                <input type="email" id="templateFromEmail" placeholder="Email expéditeur (optionnel)">
-                <button class="btn-primary" onclick="addTemplate(event)">Ajouter Template</button>
+                <form onsubmit="addTemplate(event); return false;">
+                    <input type="text" id="templateId" placeholder="ID du template (ex: welcome)" required>
+                    <input type="text" id="templateName" placeholder="Nom du template" required>
+                    <input type="text" id="templateSubject" placeholder="Sujet (ex: Bienvenue {{.first_name}}!)" required>
+                    <textarea id="templateHTML" rows="5" placeholder="HTML du template (ex: <h1>Bonjour {{.first_name}}!</h1>)" required></textarea>
+                    <input type="text" id="templateParams" placeholder="Paramètres séparés par des virgules (ex: first_name,last_name)">
+                    <input type="email" id="templateFromEmail" placeholder="Email expéditeur (optionnel)">
+                    <button type="submit" class="btn-primary">Ajouter Template</button>
+                </form>
                 <div id="addTemplateMessage"></div>
             </div>
 
             <div class="form-group">
                 <h2>Tester un email</h2>
-                <select id="testTemplateId">
-                    <option value="">Sélectionner un template</option>
-                </select>
-                <input type="email" id="testEmail" placeholder="Email destinataire" required>
-                <div id="paramInputs"></div>
-                <button class="btn-success" onclick="testEmail()">Envoyer Test</button>
+                <form onsubmit="testEmail(event); return false;">
+                    <select id="testTemplateId" required>
+                        <option value="">Sélectionner un template</option>
+                    </select>
+                    <input type="email" id="testEmail" placeholder="Email destinataire" required>
+                    <div id="paramInputs"></div>
+                    <button type="submit" class="btn-success">Envoyer Test</button>
+                </form>
                 <div id="testEmailMessage"></div>
             </div>
 
@@ -1262,15 +1266,26 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
         let currentTemplates = [];
 
         function showTab(tabName) {
-            document.querySelectorAll('.tab-content').forEach(tab => {
+            // Supprimer la classe active de tous les onglets
+            document.querySelectorAll('.tab-content').forEach(function(tab) {
                 tab.classList.remove('active');
             });
-            document.querySelectorAll('.tab').forEach(tab => {
+            document.querySelectorAll('.tab').forEach(function(tab) {
                 tab.classList.remove('active');
             });
 
+            // Ajouter la classe active à l'onglet sélectionné
             document.getElementById(tabName + 'Tab').classList.add('active');
-            event.target.classList.add('active');
+            
+            // Trouver le bon bouton tab et l'activer
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(function(tab) {
+                if (tab.textContent.toLowerCase().includes(tabName.toLowerCase()) || 
+                    (tabName === 'templates' && tab.textContent === 'Templates') ||
+                    (tabName === 'stats' && tab.textContent === 'Statistiques')) {
+                    tab.classList.add('active');
+                }
+            });
 
             if (tabName === 'stats') {
                 loadStats();
@@ -1416,8 +1431,8 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
                     '<pre>' + template.html + '</pre>' +
                     '<p><strong>Exemple d\\'appel API:</strong></p>' +
                     '<pre>' + curlExample + '</pre>' +
-                    '<button class="btn-info" onclick="showTemplateStats(\\'' + template.id + '\\')">Voir Stats</button>' +
-                    '<button class="btn-danger" onclick="deleteTemplate(\\'' + template.id + '\\')">Supprimer</button>';
+                    '<button class="btn-info" onclick="showTemplateStats(\'' + template.id + '\')">Voir Stats</button>' +
+                    '<button class="btn-danger" onclick="deleteTemplate(\'' + template.id + '\')">Supprimer</button>';
                 container.appendChild(div);
             });
         }
@@ -1475,9 +1490,26 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
             });
         }
 
-        if (document.getElementById('testTemplateId')) {
-            document.getElementById('testTemplateId').addEventListener('change', updateParamInputs);
-        }
+        document.addEventListener('DOMContentLoaded', function() {
+            loadTemplates();
+            
+            // Attacher l'événement pour le select des templates  
+            const templateSelect = document.getElementById('testTemplateId');
+            if (templateSelect) {
+                templateSelect.addEventListener('change', updateParamInputs);
+            }
+            
+            // Attacher les événements pour les onglets
+            document.querySelectorAll('.tab').forEach(function(tab, index) {
+                tab.addEventListener('click', function() {
+                    if (index === 0) {
+                        showTab('templates');
+                    } else if (index === 1) {
+                        showTab('stats');
+                    }
+                });
+            });
+        });
 
         function copyApiKey() {
             const apiKey = document.getElementById('apiKey').textContent;
@@ -1505,9 +1537,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
         }
 
         function addTemplate(event) {
-            if (event && event.preventDefault) {
-                event.preventDefault();
-            }
+            event.preventDefault();
 
             const templateId = document.getElementById('templateId').value.trim();
             const templateName = document.getElementById('templateName').value.trim();
@@ -1538,7 +1568,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
                 template.from_email = templateFromEmail;
             }
 
-            const button = event && event.target ? event.target : document.querySelector('.btn-primary');
+            const button = event.target.querySelector('button[type="submit"]') || event.target;
             const originalText = button.textContent;
             button.disabled = true;
             button.textContent = 'Ajout...';
@@ -1603,9 +1633,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
         }
 
         function testEmail(event) {
-            if (event && event.preventDefault) {
-                event.preventDefault();
-            }
+            event.preventDefault();
 
             const templateId = document.getElementById('testTemplateId').value;
             const email = document.getElementById('testEmail').value.trim();
@@ -1628,7 +1656,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
                     emailData[paramName] = paramValue;
                 });
                 
-                const button = event && event.target ? event.target : document.querySelector('.btn-success');
+                const button = event.target.querySelector('button[type="submit"]') || event.target;
                 const originalText = button.textContent;
                 button.disabled = true;
                 button.textContent = 'Envoi...';

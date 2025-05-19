@@ -1,3 +1,5 @@
+package main
+
 import (
 	"bytes"
 	"crypto/rand"
@@ -17,11 +19,12 @@ import (
 
 // Structure pour les templates d'email
 type EmailTemplate struct {
-	ID       string   `json:"id"`
-	Name     string   `json:"name"`
-	Subject  string   `json:"subject"`
-	HTML     string   `json:"html"`
-	Params   []string `json:"params"`
+	ID        string   `json:"id"`
+	Name      string   `json:"name"`
+	Subject   string   `json:"subject"`
+	HTML      string   `json:"html"`
+	Params    []string `json:"params"`
+	FromEmail string   `json:"from_email,omitempty"`
 }
 
 // Structure pour l'API Resend
@@ -105,7 +108,10 @@ var (
 // Générer une clé API aléatoirement
 func generateAPIKey() string {
 	bytes := make([]byte, 16)
-	rand.Read(bytes)
+	if _, err := rand.Read(bytes); err != nil {
+		log.Printf("Erreur génération API key: %v", err)
+		return "fallback-api-key"
+	}
 	return hex.EncodeToString(bytes)
 }
 
@@ -135,6 +141,12 @@ func adminAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		sessionMutex.RUnlock()
 
 		if !exists || time.Now().After(session.Expires) {
+			// Nettoyer la session expirée
+			if exists {
+				sessionMutex.Lock()
+				delete(adminSessions, cookie.Value)
+				sessionMutex.Unlock()
+			}
 			http.Error(w, "Session expirée", http.StatusUnauthorized)
 			return
 		}
@@ -154,26 +166,26 @@ func sendEmailViaResend(to, subject, html, from string) error {
 
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
-		return err
+		return fmt.Errorf("erreur marshalling JSON: %w", err)
 	}
 
 	req, err := http.NewRequest("POST", "https://api.resend.com/emails", bytes.NewBuffer(jsonData))
 	if err != nil {
-		return err
+		return fmt.Errorf("erreur création requête: %w", err)
 	}
 
 	req.Header.Set("Authorization", "Bearer "+resendAPIKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("erreur requête HTTP: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("erreur Resend: %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("erreur Resend: code %d", resp.StatusCode)
 	}
 
 	return nil
@@ -198,6 +210,12 @@ func sendEmailHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validation de l'email
+	if to == "" {
+		http.Error(w, "Email destinataire vide", http.StatusBadRequest)
+		return
+	}
+
 	// Supprimer 'to' des paramètres
 	delete(requestBody, "to")
 
@@ -214,12 +232,14 @@ func sendEmailHandler(w http.ResponseWriter, r *http.Request) {
 	// Traiter le subject
 	subjectTmpl, err := template.New("subject").Parse(emailTemplate.Subject)
 	if err != nil {
+		log.Printf("Erreur parsing template subject: %v", err)
 		http.Error(w, "Erreur template subject", http.StatusInternalServerError)
 		return
 	}
 
 	var subjectBuf bytes.Buffer
 	if err := subjectTmpl.Execute(&subjectBuf, params); err != nil {
+		log.Printf("Erreur exécution template subject: %v", err)
 		http.Error(w, "Erreur exécution template subject", http.StatusInternalServerError)
 		return
 	}
@@ -227,17 +247,19 @@ func sendEmailHandler(w http.ResponseWriter, r *http.Request) {
 	// Traiter le HTML
 	htmlTmpl, err := template.New("html").Parse(emailTemplate.HTML)
 	if err != nil {
+		log.Printf("Erreur parsing template HTML: %v", err)
 		http.Error(w, "Erreur template HTML", http.StatusInternalServerError)
 		return
 	}
 
 	var htmlBuf bytes.Buffer
 	if err := htmlTmpl.Execute(&htmlBuf, params); err != nil {
+		log.Printf("Erreur exécution template HTML: %v", err)
 		http.Error(w, "Erreur exécution template HTML", http.StatusInternalServerError)
 		return
 	}
 
-	// Envoyer l'email avec le from_email du template
+	// Déterminer l'email d'envoi
 	emailFrom := emailTemplate.FromEmail
 	if emailFrom == "" {
 		emailFrom = fromEmail // Fallback sur l'email par défaut
@@ -255,8 +277,7 @@ func sendEmailHandler(w http.ResponseWriter, r *http.Request) {
 
 // Handler pour la page de login admin
 func loginPageHandler(w http.ResponseWriter, r *http.Request) {
-	html := `
-<!DOCTYPE html>
+	html := `<!DOCTYPE html>
 <html>
 <head>
     <title>Admin Login</title>
@@ -283,11 +304,6 @@ func loginPageHandler(w http.ResponseWriter, r *http.Request) {
             --border: 217.2 32.6% 17.5%;
             --input: 217.2 32.6% 17.5%;
             --ring: 212.7 26.8% 83.9%;
-            --chart-1: 220 70% 50%;
-            --chart-2: 160 60% 45%;
-            --chart-3: 30 80% 55%;
-            --chart-4: 280 65% 60%;
-            --chart-5: 340 75% 55%;
         }
 
         * {
@@ -476,7 +492,7 @@ func loginPageHandler(w http.ResponseWriter, r *http.Request) {
 </body>
 </html>`
 
-	w.Header().Set("Content-Type", "text/html")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(html))
 }
 
@@ -514,10 +530,12 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		Expires:  expires,
 		HttpOnly: true,
 		Path:     "/",
+		SameSite: http.SameSiteStrictMode,
 	}
 	http.SetCookie(w, cookie)
 
-	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
 }
 
 // Handler pour la déconnexion admin
@@ -536,6 +554,7 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 		Expires:  time.Now().Add(-time.Hour),
 		HttpOnly: true,
 		Path:     "/",
+		SameSite: http.SameSiteStrictMode,
 	})
 
 	http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
@@ -543,27 +562,97 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 
 // Handler pour l'interface web admin (sécurisée)
 func adminHandler(w http.ResponseWriter, r *http.Request) {
-	html := `
-<!DOCTYPE html>
+	html := fmt.Sprintf(`<!DOCTYPE html>
 <html>
 <head>
     <title>Email Template Manager</title>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { font-family: Arial, sans-serif; margin: 40px; }
-        .container { max-width: 1000px; margin: 0 auto; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
-        .template { border: 1px solid #ddd; padding: 20px; margin: 10px 0; border-radius: 5px; }
-        input, textarea, select { width: 100%; padding: 8px; margin: 5px 0; box-sizing: border-box; }
-        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
-        .btn-primary { background: #007bff; color: white; border: none; }
-        .btn-danger { background: #dc3545; color: white; border: none; }
-        .btn-success { background: #28a745; color: white; border: none; }
-        .btn-secondary { background: #6c757d; color: white; border: none; }
-        .form-group { margin: 15px 0; }
-        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
-        .api-key-section { background: #e9ecef; padding: 15px; border-radius: 5px; margin: 20px 0; }
-        .api-key { font-family: monospace; background: white; padding: 10px; border: 1px solid #ccc; border-radius: 3px; }
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 40px; 
+            background-color: #f5f5f5;
+        }
+        .container { 
+            max-width: 1000px; 
+            margin: 0 auto; 
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 30px; 
+            border-bottom: 2px solid #eee;
+            padding-bottom: 20px;
+        }
+        .template { 
+            border: 1px solid #ddd; 
+            padding: 20px; 
+            margin: 10px 0; 
+            border-radius: 5px; 
+            background: #fafafa;
+        }
+        input, textarea, select { 
+            width: 100%; 
+            padding: 8px; 
+            margin: 5px 0; 
+            box-sizing: border-box; 
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button { 
+            padding: 10px 15px; 
+            margin: 5px; 
+            cursor: pointer; 
+            border: none;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .form-group { 
+            margin: 15px 0; 
+            padding: 20px;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            background: #f9f9f9;
+        }
+        pre { 
+            background: #f8f9fa; 
+            padding: 10px; 
+            border-radius: 3px; 
+            overflow-x: auto; 
+            border: 1px solid #e9ecef;
+        }
+        .api-key-section { 
+            background: #e9ecef; 
+            padding: 15px; 
+            border-radius: 5px; 
+            margin: 20px 0; 
+        }
+        .api-key { 
+            font-family: monospace; 
+            background: white; 
+            padding: 10px; 
+            border: 1px solid #ccc; 
+            border-radius: 3px; 
+            word-break: break-all;
+        }
+        .form-group h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        .template h3 {
+            color: #007bff;
+            margin-top: 0;
+        }
     </style>
 </head>
 <body>
@@ -576,7 +665,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
         <div class="api-key-section">
             <h3>Clé API</h3>
             <p>Utilisez cette clé API dans le header <code>X-API-Key</code> pour envoyer des emails :</p>
-            <div class="api-key" id="apiKey">` + apiKey + `</div>
+            <div class="api-key" id="apiKey">%s</div>
             <button class="btn-secondary" onclick="copyApiKey()">Copier</button>
         </div>
         
@@ -587,6 +676,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
             <input type="text" id="templateSubject" placeholder="Sujet (ex: Bienvenue {{.first_name}}!)">
             <textarea id="templateHTML" rows="5" placeholder="HTML du template (ex: <h1>Bonjour {{.first_name}}!</h1>)"></textarea>
             <input type="text" id="templateParams" placeholder="Paramètres séparés par des virgules (ex: first_name,last_name)">
+            <input type="email" id="templateFromEmail" placeholder="Email expéditeur (optionnel)">
             <button class="btn-primary" onclick="addTemplate()">Ajouter Template</button>
         </div>
 
@@ -623,10 +713,16 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
                         // Ajouter à la liste
                         const div = document.createElement('div');
                         div.className = 'template';
-                        div.innerHTML = ` + "`" + `
+                        
+                        const exampleParams = template.params.map(param => 
+                            '"' + param + '": "valeur"'
+                        ).join(',\\n    ');
+                        
+                        div.innerHTML = `
                             <h3>${template.name} (${template.id})</h3>
                             <p><strong>Sujet:</strong> ${template.subject}</p>
                             <p><strong>Paramètres:</strong> ${template.params.join(', ')}</p>
+                            ${template.from_email ? '<p><strong>Email expéditeur:</strong> ' + template.from_email + '</p>' : ''}
                             <pre>${template.html}</pre>
                             <p><strong>Exemple d'appel API:</strong></p>
                             <pre>curl -X POST https://your-app.railway.app/email/${template.id} \\
@@ -634,10 +730,10 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
   -H "X-API-Key: YOUR_API_KEY" \\
   -d '{
     "to": "user@example.com",
-    ` + "${template.params.map(param => `\"${param}\": \"valeur\"`).join(',\\n    ')}" + `
+    ${exampleParams}
   }'</pre>
                             <button class="btn-danger" onclick="deleteTemplate('${template.id}')">Supprimer</button>
-                        ` + "`" + `;
+                        `;
                         container.appendChild(div);
                         
                         // Ajouter au select
@@ -646,6 +742,9 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
                         option.textContent = template.name;
                         select.appendChild(option);
                     });
+                })
+                .catch(error => {
+                    console.error('Erreur chargement templates:', error);
                 });
         }
 
@@ -685,10 +784,15 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
             fetch('/admin/logout', { method: 'POST' })
                 .then(() => {
                     window.location.href = '/admin/login';
+                })
+                .catch(error => {
+                    console.error('Erreur logout:', error);
+                    window.location.href = '/admin/login';
                 });
         }
 
         function addTemplate() {
+            const fromEmail = document.getElementById('templateFromEmail').value;
             const template = {
                 id: document.getElementById('templateId').value,
                 name: document.getElementById('templateName').value,
@@ -696,6 +800,15 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
                 html: document.getElementById('templateHTML').value,
                 params: document.getElementById('templateParams').value.split(',').map(p => p.trim()).filter(p => p)
             };
+
+            if (fromEmail) {
+                template.from_email = fromEmail;
+            }
+
+            if (!template.id || !template.name) {
+                alert('ID et nom du template sont requis');
+                return;
+            }
 
             fetch('/api/templates', {
                 method: 'POST',
@@ -712,15 +825,20 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
                     document.getElementById('templateSubject').value = '';
                     document.getElementById('templateHTML').value = '';
                     document.getElementById('templateParams').value = '';
+                    document.getElementById('templateFromEmail').value = '';
                 } else {
                     alert('Erreur lors de l\'ajout');
                 }
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                alert('Erreur lors de l\'ajout');
             });
         }
 
         function deleteTemplate(id) {
             if (confirm('Supprimer ce template?')) {
-                fetch(` + "`" + `/api/templates/${id}` + "`" + `, { method: 'DELETE' })
+                fetch('/api/templates/' + id, { method: 'DELETE' })
                 .then(response => {
                     if (response.ok) {
                         alert('Template supprimé!');
@@ -728,6 +846,10 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
                     } else {
                         alert('Erreur lors de la suppression');
                     }
+                })
+                .catch(error => {
+                    console.error('Erreur:', error);
+                    alert('Erreur lors de la suppression');
                 });
             }
         }
@@ -751,11 +873,11 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
                 emailData[paramName] = input.value;
             });
             
-            fetch(` + "`" + `/email/${templateId}` + "`" + `, {
+            fetch('/email/' + templateId, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
-                    'X-API-Key': '` + apiKey + `'
+                    'X-API-Key': '%s'
                 },
                 body: JSON.stringify(emailData)
             })
@@ -765,6 +887,10 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
                 } else {
                     alert('Erreur lors de l\'envoi');
                 }
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                alert('Erreur lors de l\'envoi');
             });
         }
 
@@ -772,111 +898,4 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
         loadTemplates();
     </script>
 </body>
-</html>`
-
-	w.Header().Set("Content-Type", "text/html")
-	w.Write([]byte(html))
-}
-
-// API Handlers pour la gestion des templates (sécurisés)
-func getTemplatesHandler(w http.ResponseWriter, r *http.Request) {
-	templates := templateManager.GetAllTemplates()
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(templates)
-}
-
-func addTemplateHandler(w http.ResponseWriter, r *http.Request) {
-	var template EmailTemplate
-	if err := json.NewDecoder(r.Body).Decode(&template); err != nil {
-		http.Error(w, "JSON invalide", http.StatusBadRequest)
-		return
-	}
-
-	if template.ID == "" || template.Name == "" {
-		http.Error(w, "ID et nom requis", http.StatusBadRequest)
-		return
-	}
-
-	templateManager.AddTemplate(template)
-	w.WriteHeader(http.StatusCreated)
-}
-
-func deleteTemplateHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	templateID := vars["id"]
-	
-	templateManager.DeleteTemplate(templateID)
-	w.WriteHeader(http.StatusOK)
-}
-
-func main() {
-	// Initialiser les variables d'environnement
-	resendAPIKey = os.Getenv("RESEND_API_KEY")
-	fromEmail = os.Getenv("FROM_EMAIL")
-	adminPassword = os.Getenv("ADMIN_PASSWORD")
-	
-	if resendAPIKey == "" {
-		log.Fatal("RESEND_API_KEY requis")
-	}
-	if fromEmail == "" {
-		fromEmail = "noreply@example.com"
-	}
-	if adminPassword == "" {
-		adminPassword = "admin123" // Mot de passe par défaut (à changer !)
-		log.Println("ATTENTION: Utilisation du mot de passe admin par défaut. Définissez ADMIN_PASSWORD.")
-	}
-
-	// Générer une clé API unique
-	apiKey = generateAPIKey()
-	log.Printf("Clé API générée: %s", apiKey)
-
-	// Initialiser les sessions admin
-	adminSessions = make(map[string]AdminSession)
-
-	// Initialiser le gestionnaire de templates
-	templateManager = NewTemplateManager()
-
-	// Configurer les routes
-	r := mux.NewRouter()
-	
-	// Routes publiques pour l'envoi d'emails (protégées par API key)
-	r.HandleFunc("/email/{template}", apiKeyMiddleware(sendEmailHandler)).Methods("POST")
-	
-	// Routes pour l'authentification admin
-	r.HandleFunc("/admin/login", loginPageHandler).Methods("GET")
-	r.HandleFunc("/admin/login", loginHandler).Methods("POST")
-	r.HandleFunc("/admin/logout", logoutHandler).Methods("POST")
-	
-	// Routes pour l'interface d'administration (protégées par session)
-	r.HandleFunc("/admin", adminAuthMiddleware(adminHandler)).Methods("GET")
-	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/admin", http.StatusSeeOther)
-	}).Methods("GET")
-	
-	// API pour la gestion des templates (protégée par session admin)
-	r.HandleFunc("/api/templates", adminAuthMiddleware(getTemplatesHandler)).Methods("GET")
-	r.HandleFunc("/api/templates", adminAuthMiddleware(addTemplateHandler)).Methods("POST")
-	r.HandleFunc("/api/templates/{id}", adminAuthMiddleware(deleteTemplateHandler)).Methods("DELETE")
-
-	// Configuration CORS
-	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"},
-		AllowedMethods:   []string{"GET", "POST", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"*"},
-		AllowCredentials: true,
-	})
-
-	handler := c.Handler(r)
-
-	// Démarrer le serveur
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-
-	log.Printf("Serveur démarré sur le port %s", port)
-	log.Printf("Interface admin: http://localhost:%s/admin/login", port)
-	log.Printf("Mot de passe admin: %s", adminPassword)
-	log.Fatal(http.ListenAndServe(":"+port, handler))
-}
-
+</html>`, apiKey, apiKey)

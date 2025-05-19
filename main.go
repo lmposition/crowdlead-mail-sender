@@ -562,7 +562,7 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 
 // Handler pour l'interface web admin (sécurisée)
 func adminHandler(w http.ResponseWriter, r *http.Request) {
-	html := fmt.Sprintf(`<!DOCTYPE html>
+	html := `<!DOCTYPE html>
 <html>
 <head>
     <title>Email Template Manager</title>
@@ -665,7 +665,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
         <div class="api-key-section">
             <h3>Clé API</h3>
             <p>Utilisez cette clé API dans le header <code>X-API-Key</code> pour envoyer des emails :</p>
-            <div class="api-key" id="apiKey">%s</div>
+            <div class="api-key" id="apiKey">` + apiKey + `</div>
             <button class="btn-secondary" onclick="copyApiKey()">Copier</button>
         </div>
         
@@ -718,22 +718,21 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
                             '"' + param + '": "valeur"'
                         ).join(',\\n    ');
                         
-                        div.innerHTML = `
-                            <h3>${template.name} (${template.id})</h3>
-                            <p><strong>Sujet:</strong> ${template.subject}</p>
-                            <p><strong>Paramètres:</strong> ${template.params.join(', ')}</p>
-                            ${template.from_email ? '<p><strong>Email expéditeur:</strong> ' + template.from_email + '</p>' : ''}
-                            <pre>${template.html}</pre>
-                            <p><strong>Exemple d'appel API:</strong></p>
-                            <pre>curl -X POST https://your-app.railway.app/email/${template.id} \\
-  -H "Content-Type: application/json" \\
-  -H "X-API-Key: YOUR_API_KEY" \\
-  -d '{
-    "to": "user@example.com",
-    ${exampleParams}
-  }'</pre>
-                            <button class="btn-danger" onclick="deleteTemplate('${template.id}')">Supprimer</button>
-                        `;
+                        div.innerHTML = 
+                            '<h3>' + template.name + ' (' + template.id + ')</h3>' +
+                            '<p><strong>Sujet:</strong> ' + template.subject + '</p>' +
+                            '<p><strong>Paramètres:</strong> ' + template.params.join(', ') + '</p>' +
+                            (template.from_email ? '<p><strong>Email expéditeur:</strong> ' + template.from_email + '</p>' : '') +
+                            '<pre>' + template.html + '</pre>' +
+                            '<p><strong>Exemple d\'appel API:</strong></p>' +
+                            '<pre>curl -X POST https://your-app.railway.app/email/' + template.id + ' \\\\' + '\n' +
+                            '  -H "Content-Type: application/json" \\\\' + '\n' +
+                            '  -H "X-API-Key: YOUR_API_KEY" \\\\' + '\n' +
+                            '  -d \'{\n' +
+                            '    "to": "user@example.com",' + '\n' +
+                            '    ' + exampleParams + '\n' +
+                            '  }\'</pre>' +
+                            '<button class="btn-danger" onclick="deleteTemplate(\'' + template.id + '\')">Supprimer</button>';
                         container.appendChild(div);
                         
                         // Ajouter au select
@@ -848,6 +847,57 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
                     }
                 })
                 .catch(error => {
+                    console.error('Erreur:', error);
+                    alert('Erreur lors de la suppression');
+                });
+            }
+        }
+
+        function testEmail() {
+            const templateId = document.getElementById('testTemplateId').value;
+            const email = document.getElementById('testEmail').value;
+            
+            if (!templateId || !email) {
+                alert('Veuillez sélectionner un template et saisir un email');
+                return;
+            }
+            
+            // Construire l'objet avec les paramètres
+            const emailData = { to: email };
+            
+            // Ajouter tous les paramètres du template
+            const paramInputs = document.querySelectorAll('#paramInputs input');
+            paramInputs.forEach(input => {
+                const paramName = input.getAttribute('data-param');
+                emailData[paramName] = input.value;
+            });
+            
+            fetch('/email/' + templateId, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-API-Key': '` + apiKey + `'
+                },
+                body: JSON.stringify(emailData)
+            })
+            .then(response => {
+                if (response.ok) {
+                    alert('Email envoyé!');
+                } else {
+                    alert('Erreur lors de l\'envoi');
+                }
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                alert('Erreur lors de l\'envoi');
+            });
+        }
+
+        // Charger les templates au démarrage
+        loadTemplates();
+    </script>
+</body>
+</html>`
                     console.error('Erreur:', error);
                     alert('Erreur lors de la suppression');
                 });

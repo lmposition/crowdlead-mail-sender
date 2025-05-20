@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Connexion - Email Manager</title>
-    <link rel="stylesheet" href="./style.css">
+    <link rel="stylesheet" href="style.css">
     <link rel="icon" type="image/x-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0ibTQgNCA2IDAgMCA2LTYgMCAwLTZ6IiBmaWxsPSIjMDA5OGY3Ii8+CjxwYXRoIGQ9Im0xNCA0IDYgMCAwIDYtNiAwIDAtNnoiIGZpbGw9IiMwMDk4ZjciLz4KPHA8cGF0aCBkPSJtNDE0IDQgNiAwIDYgMCAwNi02IDAiIGZpbGw9IiMwMDk4ZjciLz4KPHA8cGF0aCBkPSJtNDE0IDE0IDYgMCAwIDYtNiAwIDAtNnoiIGZpbGw9IiMwMDk4ZjciLz4KPC9zdmc+">
 </head>
 <body>
@@ -79,25 +79,6 @@
             }
         }
 
-        // Vérifier si déjà connecté
-        async function checkAuthStatus() {
-            try {
-                const response = await fetch('/admin/check', {
-                    credentials: 'include'
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success && data.data.authenticated) {
-                        window.location.href = '/admin';
-                        return;
-                    }
-                }
-            } catch (error) {
-                console.log('Non connecté');
-            }
-        }
-
         // Gestionnaire de soumission du formulaire
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -119,9 +100,15 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    // Connexion réussie - rediriger vers l'admin
-                    window.location.href = '/admin';
+                    console.log('Connexion réussie, redirection vers le dashboard');
+                    // Stocker le token dans localStorage pour plus de sécurité
+                    localStorage.setItem('emailManagerAuth', 'true');
+                    // Redirection délayée pour éviter les problèmes
+                    setTimeout(() => {
+                        window.location.href = '/admin';
+                    }, 500);
                 } else {
+                    console.log('Erreur de connexion:', data.error);
                     showError(data.error || 'Erreur de connexion');
                     setLoading(false);
                 }
@@ -138,9 +125,6 @@
                 document.getElementById('loginForm').dispatchEvent(new Event('submit'));
             }
         });
-
-        // Vérifier l'état d'authentification au chargement
-        checkAuthStatus();
 
         // Ajout de styles supplémentaires pour la largeur complète
         const style = document.createElement('style');

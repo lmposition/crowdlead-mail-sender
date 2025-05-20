@@ -189,6 +189,20 @@
             templateForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
                 
+                // Afficher le chargement
+                const saveBtn = document.getElementById('saveTemplateBtn');
+                const saveText = document.getElementById('saveText');
+                const saveLoading = document.getElementById('saveLoading');
+                const templateError = document.getElementById('templateError');
+                const templateErrorText = document.getElementById('templateErrorText');
+                
+                // Masquer les erreurs précédentes
+                templateError.style.display = 'none';
+                
+                // Afficher le chargement
+                saveBtn.disabled = true;
+                saveLoading.style.display = 'inline-block';
+                
                 const templateId = document.getElementById('templateId').value;
                 const templateData = {
                     name: document.getElementById('templateName').value,
@@ -198,33 +212,48 @@
                 };
                 
                 try {
+                    console.log('Données du template à envoyer:', templateData);
+                    console.log('ID du template:', templateId || 'Nouveau template');
+                    
                     const token = localStorage.getItem('emailManagerToken');
                     const headers = {
-                        'Content-Type': 'application/json',
-                        'Authorization': token ? `Bearer ${token}` : undefined
+                        'Content-Type': 'application/json'
                     };
                     
+                    // Ajouter le token d'authentification s'il existe
+                    if (token) {
+                        headers['Authorization'] = `Bearer ${token}`;
+                    }
+                    
                     let response;
+                    let url;
+                    let method;
                     
                     if (templateId) {
                         // Mise à jour d'un template existant
-                        response = await fetch(`/api/templates/${templateId}`, {
-                            method: 'PUT',
-                            headers,
-                            credentials: 'include',
-                            body: JSON.stringify(templateData)
-                        });
+                        url = `/api/templates/${templateId}`;
+                        method = 'PUT';
+                        console.log(`Mise à jour du template ${templateId}`);
                     } else {
                         // Création d'un nouveau template
-                        response = await fetch('/api/templates', {
-                            method: 'POST',
-                            headers,
-                            credentials: 'include',
-                            body: JSON.stringify(templateData)
-                        });
+                        url = '/api/templates';
+                        method = 'POST';
+                        console.log('Création d\'un nouveau template');
                     }
                     
+                    console.log(`Envoi de requête ${method} à ${url}`);
+                    
+                    response = await fetch(url, {
+                        method: method,
+                        headers: headers,
+                        credentials: 'include',
+                        body: JSON.stringify(templateData)
+                    });
+                    
+                    console.log('Réponse HTTP reçue:', response.status);
+                    
                     const result = await response.json();
+                    console.log('Données reçues:', result);
                     
                     if (result.success) {
                         // Fermer le modal et recharger les templates
@@ -232,11 +261,20 @@
                         loadTemplatesData();
                         alert(templateId ? 'Template mis à jour avec succès' : 'Template créé avec succès');
                     } else {
-                        alert(`Erreur: ${result.error || 'Une erreur est survenue'}`);
+                        // Afficher l'erreur
+                        templateErrorText.textContent = result.error || 'Une erreur est survenue';
+                        templateError.style.display = 'block';
+                        console.error('Erreur retournée par l\'API:', result.error);
                     }
                 } catch (error) {
+                    // Afficher l'erreur
                     console.error('Erreur lors de la sauvegarde du template:', error);
-                    alert('Erreur lors de la sauvegarde du template');
+                    templateErrorText.textContent = 'Erreur de connexion au serveur';
+                    templateError.style.display = 'block';
+                } finally {
+                    // Masquer le chargement
+                    saveBtn.disabled = false;
+                    saveLoading.style.display = 'none';
                 }
             });
             
@@ -340,18 +378,30 @@
             // Fonction pour éditer un template
             async function editTemplate(id) {
                 try {
-                    const token = localStorage.getItem('emailManagerToken');
-                    const headers = {
-                        'Authorization': token ? `Bearer ${token}` : undefined
-                    };
+                    console.log(`Récupération du template ${id} pour édition`);
                     
+                    const token = localStorage.getItem('emailManagerToken');
+                    const headers = {};
+                    
+                    // Ajouter le token d'authentification s'il existe
+                    if (token) {
+                        headers['Authorization'] = `Bearer ${token}`;
+                    }
+                    
+                    // Masquer les erreurs précédentes
+                    document.getElementById('templateError').style.display = 'none';
+                    
+                    console.log(`Envoi de requête GET à /api/templates/${id}`);
                     const response = await fetch(`/api/templates/${id}`, {
                         method: 'GET',
-                        headers,
+                        headers: headers,
                         credentials: 'include'
                     });
                     
+                    console.log('Réponse HTTP reçue:', response.status);
+                    
                     const result = await response.json();
+                    console.log('Données reçues:', result);
                     
                     if (result.success) {
                         const template = result.data;
@@ -370,11 +420,16 @@
                         // Afficher le modal
                         templateModal.style.display = 'block';
                     } else {
-                        alert(`Erreur: ${result.error || 'Une erreur est survenue'}`);
+                        // Afficher l'erreur
+                        const templateError = document.getElementById('templateError');
+                        const templateErrorText = document.getElementById('templateErrorText');
+                        templateErrorText.textContent = result.error || 'Une erreur est survenue';
+                        templateError.style.display = 'block';
+                        console.error('Erreur retournée par l\'API:', result.error);
                     }
                 } catch (error) {
                     console.error('Erreur lors de la récupération du template:', error);
-                    alert('Erreur lors de la récupération du template');
+                    alert('Erreur lors de la récupération du template: ' + error.message);
                 }
             }
             
@@ -466,17 +521,26 @@
                     templatesTable.innerHTML = '<tr><td colspan="5" style="text-align:center;">Chargement...</td></tr>';
                     
                     const token = localStorage.getItem('emailManagerToken');
-                    const headers = {
-                        'Authorization': token ? `Bearer ${token}` : undefined
-                    };
+                    const headers = {};
+                    
+                    // Ajouter le token d'authentification s'il existe
+                    if (token) {
+                        headers['Authorization'] = `Bearer ${token}`;
+                    }
+                    
+                    console.log('Chargement des templates...');
+                    console.log('Envoi de requête GET à /api/templates');
                     
                     const response = await fetch('/api/templates', {
                         method: 'GET',
-                        headers,
+                        headers: headers,
                         credentials: 'include'
                     });
                     
+                    console.log('Réponse HTTP reçue:', response.status);
+                    
                     const result = await response.json();
+                    console.log('Données des templates reçues:', result);
                     
                     if (result.success) {
                         currentTemplates = result.data;
@@ -496,7 +560,7 @@
                             
                             // Préparer les tags de paramètres
                             const paramsTags = template.params.map(param => 
-                                `<span class="tag">{{${param}}}</span>`
+                                `<span class="tag" style="background:rgba(106,90,205,0.1); color:#a98dff; padding:3px 8px; border-radius:4px; font-size:12px; font-family:monospace;">{{${param}}}</span>`
                             ).join(' ');
                             
                             row.innerHTML = `
@@ -507,9 +571,9 @@
                                 <td>${template.subject}</td>
                                 <td>${paramsTags}</td>
                                 <td>${createdAt}</td>
-                                <td class="flex gap-10">
-                                    <button class="btn btn-sm btn-outline edit-template" data-id="${template.id}">✏️ Éditer</button>
-                                    <button class="btn btn-sm btn-outline test-template" data-id="${template.id}">📤 Tester</button>
+                                <td>
+                                    <button class="btn btn-sm btn-outline edit-template" data-id="${template.id}" style="margin-right:5px;">✏️ Éditer</button>
+                                    <button class="btn btn-sm btn-outline test-template" data-id="${template.id}" style="margin-right:5px;">📤 Tester</button>
                                     <button class="btn btn-sm btn-danger delete-template" data-id="${template.id}">🗑️</button>
                                 </td>
                             `;
@@ -540,10 +604,11 @@
                         });
                     } else {
                         templatesTable.innerHTML = `<tr><td colspan="5" style="text-align:center;">Erreur: ${result.error || 'Une erreur est survenue'}</td></tr>`;
+                        console.error('Erreur retournée par l\'API:', result.error);
                     }
                 } catch (error) {
                     console.error('Erreur lors du chargement des templates:', error);
-                    document.getElementById('templatesTable').innerHTML = '<tr><td colspan="5" style="text-align:center;">Erreur lors du chargement des templates</td></tr>';
+                    document.getElementById('templatesTable').innerHTML = `<tr><td colspan="5" style="text-align:center;">Erreur lors du chargement des templates: ${error.message}</td></tr>`;
                 }
             }
 

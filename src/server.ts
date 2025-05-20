@@ -61,18 +61,7 @@ app.use(session({
 // Servir les fichiers statiques
 app.use(express.static(path.join(process.cwd(), 'public')));
 
-// Routes publiques pour l'envoi d'emails (avec clé API)
-app.use('/email', validateApiKey, emailRoutes);
-
-// Routes d'authentification admin
-app.use('/admin', authRoutes);
-
-// Routes admin protégées
-app.use('/admin', authenticateAdmin, adminRoutes);
-
-// Routes API admin protégées
-app.use('/api/templates', authenticateAdmin, templateRoutes);
-
+// Routes publiques NON protégées
 // Route de health check
 app.get('/health', (req, res) => {
   res.json({
@@ -82,10 +71,30 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Route pour servir la page de login
+app.get('/admin/login', (req, res) => {
+  res.sendFile(path.join(process.cwd(), 'public', 'login.html'));
+});
+
+// Route pour servir la page admin (sans vérification côté serveur)
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(process.cwd(), 'public', 'admin.html'));
+});
+
 // Redirection de la racine vers l'admin
 app.get('/', (req, res) => {
   res.redirect('/admin');
 });
+
+// Routes d'authentification API
+app.use('/admin', authRoutes);
+
+// Routes publiques pour l'envoi d'emails (avec clé API)
+app.use('/email', validateApiKey, emailRoutes);
+
+// Routes API admin protégées
+app.use('/admin/api', authenticateAdmin, adminRoutes);
+app.use('/api/templates', authenticateAdmin, templateRoutes);
 
 // Gestion des erreurs 404
 app.use('*', (req, res) => {

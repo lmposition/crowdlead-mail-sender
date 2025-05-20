@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Email Manager - Administration</title>
-    <link rel="stylesheet" href="./style.css">
     <link rel="icon" type="image/x-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTQgNEgxMFY2SDZWMjBIMThWNkgxNFY0SDIwVjIySDRWNFoiIGZpbGw9IiMwMDk4ZjciLz4KPHBhdGggZD0iTTggOEgxNlYxMEg4VjhaIiBmaWxsPSIjMDA5OGY3Ii8+CjxwYXRoIGQ9Ik04IDEySDEyVjE0SDhWMTJaIiBmaWxsPSIjMDA5OGY3Ii8+CjxwYXRoIGQ9Ik04IDE2SDE2VjE4SDhWMTZaIiBmaWxsPSIjMDA5OGY3Ii8+Cjwvc3ZnPgo=">
 </head>
 <body>
@@ -38,6 +37,24 @@
                         </svg>
                         Déconnexion
                     </button>
+                    <script>
+                        // Gestionnaire de déconnexion
+                        document.getElementById('logout-btn').addEventListener('click', async function() {
+                            try {
+                                // Tentative de déconnexion côté serveur
+                                await fetch('/admin/logout', {
+                                    method: 'POST',
+                                    credentials: 'include'
+                                });
+                            } catch (e) {
+                                console.error('Erreur lors de la déconnexion:', e);
+                            } finally {
+                                // Toujours supprimer l'authentification locale et rediriger
+                                localStorage.removeItem('emailManagerAuth');
+                                window.location.href = '/admin/login';
+                            }
+                        });
+                    </script>
                 </div>
             </div>
         </div>
@@ -786,7 +803,53 @@
     <div id="notification-container" class="notification-container"></div>
 
     <!-- Scripts -->
-    <script src="/script.js"></script>
+    <script src="script.js"></script>
+    <!-- Script de vérification d'authentification -->
+    <script>
+        // Vérifie l'authentification immédiatement
+        (async function checkAuth() {
+            try {
+                const authState = localStorage.getItem('emailManagerAuth');
+                // Si pas de token dans localStorage, rediriger vers le login
+                if (!authState) {
+                    console.log('Pas d\'authentification dans localStorage, redirection vers login');
+                    window.location.href = '/admin/login';
+                    return;
+                }
+                
+                // Vérifier la validité du token côté serveur
+                const response = await fetch('/admin/check', {
+                    credentials: 'include'
+                });
+                
+                // Si erreur ou token invalide, rediriger vers login
+                if (!response.ok) {
+                    console.log('Token invalide selon le serveur, redirection vers login');
+                    localStorage.removeItem('emailManagerAuth');
+                    window.location.href = '/admin/login';
+                    return;
+                }
+                
+                const data = await response.json();
+                if (!data.success || !data.data?.authenticated) {
+                    console.log('Session expirée, redirection vers login');
+                    localStorage.removeItem('emailManagerAuth');
+                    window.location.href = '/admin/login';
+                    return;
+                }
+                
+                console.log('Authentification vérifiée, affichage du dashboard');
+                // Authentication confirmée, on peut continuer
+                document.body.classList.add('authenticated');
+                
+            } catch (error) {
+                console.error('Erreur de vérification d\'authentification', error);
+                // En cas d'erreur, on considère non-authentifié
+                localStorage.removeItem('emailManagerAuth');
+                window.location.href = '/admin/login';
+            }
+        })();
+    </script>
 
     <!-- Styles supplémentaires pour les nouveaux composants -->
     <style>

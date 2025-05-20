@@ -35,10 +35,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// Middleware global
+// Middleware global - Configuration CORS
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? [process.env.FRONTEND_URL, /\.railway\.app$/].filter(Boolean)
+    ? /\.railway\.app$/ 
     : true,
   credentials: true
 }));

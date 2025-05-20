@@ -535,5 +535,29 @@
     </div>
 
     <script src="/static/admin.js"></script>
+    <script>
+        // Debug: vérifier que les éléments existent
+        console.log("🔍 Debug - Elements found:");
+        console.log("templatesContainer:", document.getElementById('templatesContainer'));
+        console.log("templatesLoading:", document.getElementById('templatesLoading'));
+        console.log("addTemplateForm:", document.getElementById('addTemplateForm'));
+        console.log("apiKey:", document.getElementById('apiKey'));
+        
+        // Debug: test direct de l'API
+        setTimeout(() => {
+            console.log("🧪 Testing API directly...");
+            fetch('/api/templates')
+                .then(response => {
+                    console.log("🌐 Direct API response:", response.status, response.statusText);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log("📦 Direct API data:", data);
+                })
+                .catch(error => {
+                    console.error("💥 Direct API error:", error);
+                });
+        }, 2000);
+    </script>
 </body>
 </html>

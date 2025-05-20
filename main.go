@@ -606,8 +606,11 @@ func apiKeyMiddleware(next http.HandlerFunc) http.HandlerFunc {
 // Middleware pour vérifier la session admin
 func adminAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("🔐 Vérification auth admin pour: %s", r.URL.Path)
+		
 		cookie, err := r.Cookie("admin_session")
 		if err != nil {
+			log.Printf("❌ Cookie de session manquant: %v", err)
 			http.Error(w, "Non autorisé", http.StatusUnauthorized)
 			return
 		}
@@ -616,12 +619,15 @@ func adminAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		if !exists || time.Now().After(session.Expires) {
 			// Nettoyer la session expirée
 			if exists {
+				log.Printf("🧹 Nettoyage session expirée")
 				sessionManager.DeleteSession(cookie.Value)
 			}
+			log.Printf("❌ Session expirée ou invalide")
 			http.Error(w, "Session expirée", http.StatusUnauthorized)
 			return
 		}
 
+		log.Printf("✅ Session valide")
 		next(w, r)
 	}
 }
@@ -838,6 +844,23 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(htmlContent))
 }
 
+// Handler pour la page de test simple
+func adminTestHandler(w http.ResponseWriter, r *http.Request) {
+	// Lire le fichier template de test
+	tmpl, err := os.ReadFile("./static/admin-simple.html")
+	if err != nil {
+		log.Printf("Erreur lecture template test: %v", err)
+		http.Error(w, "Erreur interne", http.StatusInternalServerError)
+		return
+	}
+
+	// Remplacer la clé API dans le template
+	htmlContent := strings.Replace(string(tmpl), "{{.APIKey}}", apiKey, -1)
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte(htmlContent))
+}
+
 // API Handlers pour la gestion des templates (sécurisés)
 func getTemplatesHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("🔍 GET /api/templates - Récupération des templates")
@@ -1022,6 +1045,7 @@ func main() {
 	
 	// Routes pour l'interface d'administration (protégées par session)
 	r.HandleFunc("/admin", adminAuthMiddleware(adminHandler)).Methods("GET")
+	r.HandleFunc("/admin/test", adminAuthMiddleware(adminTestHandler)).Methods("GET")
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin", http.StatusSeeOther)
 	}).Methods("GET")

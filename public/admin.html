@@ -1,0 +1,1743 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Manager - Administration</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="icon" type="image/x-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTQgNEgxMFY2SDZWMjBIMThWNkgxNFY0SDIwVjIySDRWNFoiIGZpbGw9IiMwMDk4ZjciLz4KPHBhdGggZD0iTTggOEgxNlYxMEg4VjhaIiBmaWxsPSIjMDA5OGY3Ii8+CjxwYXRoIGQ9Ik04IDEySDEyVjE0SDhWMTJaIiBmaWxsPSIjMDA5OGY3Ii8+CjxwYXRoIGQ9Ik04IDE2SDE2VjE4SDhWMTZaIiBmaWxsPSIjMDA5OGY3Ii8+Cjwvc3ZnPgo=">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="header-brand">
+                    <h1 class="header-title">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 0.5rem; vertical-align: middle;">
+                            <path d="M4 4H10V6H6V20H18V6H14V4H20V22H4V4Z" fill="currentColor"/>
+                            <path d="M8 8H16V10H8V8Z" fill="currentColor"/>
+                            <path d="M8 12H12V14H8V12Z" fill="currentColor"/>
+                            <path d="M8 16H16V18H8V16Z" fill="currentColor"/>
+                        </svg>
+                        Email Manager
+                    </h1>
+                    <p class="header-subtitle">Interface d'administration</p>
+                </div>
+                <div class="header-actions">
+                    <div class="session-info">
+                        <div class="session-status">
+                            <div class="status-indicator online"></div>
+                            <span id="session-status">Connecté</span>
+                        </div>
+                        <span id="welcome-message" class="session-details"></span>
+                    </div>
+                    <button id="logout-btn" class="btn btn-outline btn-sm">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                        </svg>
+                        Déconnexion
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="nav">
+        <div class="container">
+            <div class="nav-tabs">
+                <button class="nav-tab active" data-tab="dashboard">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                    Tableau de bord
+                </button>
+                <button class="nav-tab" data-tab="templates">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    Templates
+                </button>
+                <button class="nav-tab" data-tab="logs">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                    Historique
+                </button>
+                <button class="nav-tab" data-tab="stats">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                    Statistiques
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Contenu principal -->
+    <main class="main-content">
+        <div class="container">
+            <!-- Onglet Dashboard -->
+            <div id="dashboard-tab" class="tab-content">
+                <div class="page-header">
+                    <h2 class="page-title">Tableau de bord</h2>
+                    <p class="page-description">Vue d'ensemble de votre système d'emails</p>
+                </div>
+
+                <!-- Statistiques principales -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-icon stat-icon-primary">
+                                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                                </svg>
+                            </div>
+                            <div class="stat-info">
+                                <div class="stat-title">Templates Actifs</div>
+                                <div class="stat-value" id="total-templates">-</div>
+                            </div>
+                        </div>
+                        <div class="stat-footer">
+                            <span class="stat-change positive">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                                </svg>
+                                Prêts à l'utilisation
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-icon stat-icon-success">
+                                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                </svg>
+                            </div>
+                            <div class="stat-info">
+                                <div class="stat-title">Emails Envoyés</div>
+                                <div class="stat-value" id="total-emails">-</div>
+                            </div>
+                        </div>
+                        <div class="stat-footer">
+                            <span class="stat-change">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                                </svg>
+                                Total cumulé
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-icon stat-icon-warning">
+                                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </div>
+                            <div class="stat-info">
+                                <div class="stat-title">Taux de Succès</div>
+                                <div class="stat-value" id="success-rate">-</div>
+                            </div>
+                        </div>
+                        <div class="stat-footer">
+                            <span class="stat-change" id="success-rate-change">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                                </svg>
+                                Performance globale
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Activité récente et graphiques -->
+                <div class="dashboard-grid">
+                    <div class="dashboard-card">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-header-content">
+                                    <h3 class="card-title">Activité Récente</h3>
+                                    <p class="card-description">Derniers emails envoyés</p>
+                                </div>
+                                <button class="btn btn-outline btn-sm" onclick="TabManager.switchTab('logs')">
+                                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                    </svg>
+                                    Voir tout
+                                </button>
+                            </div>
+                            <div class="card-content">
+                                <div class="table-container">
+                                    <table class="table">
+                                        <thead>
+                                            <tr>
+                                                <th>Template</th>
+                                                <th>Destinataire</th>
+                                                <th>Status</th>
+                                                <th>Date</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="recent-logs">
+                                            <tr>
+                                                <td colspan="4" class="loading-cell">
+                                                    <div class="loading-content">
+                                                        <div class="loading-spinner"></div>
+                                                        <span>Chargement des données...</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-card">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-header-content">
+                                    <h3 class="card-title">Templates Populaires</h3>
+                                    <p class="card-description">Les plus utilisés cette semaine</p>
+                                </div>
+                                <button class="btn btn-outline btn-sm" onclick="TabManager.switchTab('stats')">
+                                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                                    </svg>
+                                    Statistiques
+                                </button>
+                            </div>
+                            <div class="card-content">
+                                <div id="popular-templates" class="template-list">
+                                    <div class="loading-content">
+                                        <div class="loading-spinner"></div>
+                                        <span>Chargement des templates...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Onglet Templates -->
+            <div id="templates-tab" class="tab-content hidden">
+                <div class="page-header">
+                    <div class="page-header-content">
+                        <h2 class="page-title">Gestion des Templates</h2>
+                        <p class="page-description">Créez et gérez vos modèles d'emails</p>
+                    </div>
+                    <div class="page-actions">
+                        <button id="import-template-btn" class="btn btn-outline">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"/>
+                            </svg>
+                            Importer
+                        </button>
+                        <button id="create-template-btn" class="btn btn-primary">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                            </svg>
+                            Nouveau Template
+                        </button>
+                    </div>
+                </div>
+
+                <div class="filter-bar">
+                    <div class="filter-search">
+                        <div class="search-input-container">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                            <input type="text" id="template-search" class="search-input" placeholder="Rechercher un template...">
+                        </div>
+                    </div>
+                    <div class="filter-actions">
+                        <select id="template-filter" class="form-select">
+                            <option value="all">Tous les templates</option>
+                            <option value="recent">Récemment créés</option>
+                            <option value="popular">Les plus utilisés</option>
+                            <option value="unused">Non utilisés</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="content-card">
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Template</th>
+                                    <th>Sujet</th>
+                                    <th>Paramètres</th>
+                                    <th>Utilisation</th>
+                                    <th>Créé le</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="templates-list">
+                                <tr>
+                                    <td colspan="6" class="loading-cell">
+                                        <div class="loading-content">
+                                            <div class="loading-spinner"></div>
+                                            <span>Chargement des templates...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div id="templates-empty" class="empty-state hidden">
+                        <div class="empty-state-icon">
+                            <svg width="64" height="64" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                        </div>
+                        <h3 class="empty-state-title">Aucun template trouvé</h3>
+                        <p class="empty-state-description">
+                            Commencez par créer votre premier template d'email pour démarrer l'envoi d'emails personnalisés.
+                        </p>
+                        <button class="btn btn-primary" onclick="TemplateManager.openTemplateModal()">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                            </svg>
+                            Créer un template
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Onglet Logs -->
+            <div id="logs-tab" class="tab-content hidden">
+                <div class="page-header">
+                    <div class="page-header-content">
+                        <h2 class="page-title">Historique des Emails</h2>
+                        <p class="page-description">Journal détaillé de tous les emails envoyés</p>
+                    </div>
+                    <div class="page-actions">
+                        <button id="export-logs-btn" class="btn btn-outline">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            Exporter
+                        </button>
+                        <button id="refresh-logs-btn" class="btn btn-outline">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                            Actualiser
+                        </button>
+                    </div>
+                </div>
+
+                <div class="filter-bar">
+                    <div class="filter-group">
+                        <label class="filter-label">Filtrer par :</label>
+                        <select id="log-status-filter" class="form-select">
+                            <option value="all">Tous les statuts</option>
+                            <option value="success">Succès uniquement</option>
+                            <option value="failed">Échecs uniquement</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Période :</label>
+                        <select id="log-period-filter" class="form-select">
+                            <option value="all">Toute la période</option>
+                            <option value="today">Aujourd'hui</option>
+                            <option value="week">Cette semaine</option>
+                            <option value="month">Ce mois</option>
+                        </select>
+                    </div>
+                    <div class="filter-search">
+                        <div class="search-input-container">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                            <input type="text" id="log-search" class="search-input" placeholder="Rechercher par email...">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="content-card">
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Template</th>
+                                    <th>Destinataire</th>
+                                    <th>Sujet</th>
+                                    <th>Status</th>
+                                    <th>Erreur</th>
+                                    <th>Date d'envoi</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="logs-list">
+                                <tr>
+                                    <td colspan="7" class="loading-cell">
+                                        <div class="loading-content">
+                                            <div class="loading-spinner"></div>
+                                            <span>Chargement des logs...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="table-pagination">
+                        <div class="pagination-info">
+                            <span id="pagination-info">Chargement...</span>
+                        </div>
+                        <div class="pagination-controls">
+                            <button id="prev-page" class="btn btn-outline btn-sm" disabled>
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                </svg>
+                                Précédent
+                            </button>
+                            <div class="pagination-numbers" id="pagination-numbers"></div>
+                            <button id="next-page" class="btn btn-outline btn-sm" disabled>
+                                Suivant
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Onglet Statistiques -->
+            <div id="stats-tab" class="tab-content hidden">
+                <div class="page-header">
+                    <div class="page-header-content">
+                        <h2 class="page-title">Statistiques Détaillées</h2>
+                        <p class="page-description">Analyses de performance par template</p>
+                    </div>
+                    <div class="page-actions">
+                        <button id="export-stats-btn" class="btn btn-outline">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a4 4 0 01-4-4V5a4 4 0 014-4h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a4 4 0 01-4 4z"/>
+                            </svg>
+                            Rapport
+                        </button>
+                    </div>
+                </div>
+
+                <div class="stats-overview">
+                    <div class="stats-cards">
+                        <div class="stat-mini-card">
+                            <div class="stat-mini-icon">
+                                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                </svg>
+                            </div>
+                            <div class="stat-mini-content">
+                                <div class="stat-mini-label">Total Envoyés</div>
+                                <div class="stat-mini-value" id="stats-total-sent">-</div>
+                            </div>
+                        </div>
+
+                        <div class="stat-mini-card success">
+                            <div class="stat-mini-icon">
+                                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </div>
+                            <div class="stat-mini-content">
+                                <div class="stat-mini-label">Succès</div>
+                                <div class="stat-mini-value" id="stats-total-success">-</div>
+                            </div>
+                        </div>
+
+                        <div class="stat-mini-card error">
+                            <div class="stat-mini-icon">
+                                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </div>
+                            <div class="stat-mini-content">
+                                <div class="stat-mini-label">Échecs</div>
+                                <div class="stat-mini-value" id="stats-total-failed">-</div>
+                            </div>
+                        </div>
+
+                        <div class="stat-mini-card">
+                            <div class="stat-mini-icon">
+                                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                                </svg>
+                            </div>
+                            <div class="stat-mini-content">
+                                <div class="stat-mini-label">Taux Moyen</div>
+                                <div class="stat-mini-value" id="stats-avg-rate">-</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="content-card">
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Template</th>
+                                    <th>Total Envoyés</th>
+                                    <th>Succès</th>
+                                    <th>Échecs</th>
+                                    <th>Taux de Succès</th>
+                                    <th>Dernier Envoi</th>
+                                    <th>Performance</th>
+                                </tr>
+                            </thead>
+                            <tbody id="stats-list">
+                                <tr>
+                                    <td colspan="7" class="loading-cell">
+                                        <div class="loading-content">
+                                            <div class="loading-spinner"></div>
+                                            <span>Chargement des statistiques...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal pour créer/éditer un template -->
+    <div id="template-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modal-title">Nouveau Template</h3>
+                <button id="close-modal" class="btn btn-ghost btn-sm modal-close">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="modal-content">
+                <form id="template-form">
+                    <input type="hidden" id="template-id" name="id">
+                    
+                    <div class="form-sections">
+                        <div class="form-section">
+                            <h4 class="form-section-title">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                Informations générales
+                            </h4>
+                            
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="template-name" class="form-label">
+                                        Nom du template
+                                        <span class="required">*</span>
+                                    </label>
+                                    <input 
+                                        type="text" 
+                                        id="template-name" 
+                                        name="name" 
+                                        class="form-input" 
+                                        placeholder="ex: Email de bienvenue"
+                                        required
+                                        autocomplete="off"
+                                    >
+                                    <small class="form-hint">Nom d'identification interne du template</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="template-from" class="form-label">
+                                        Email expéditeur
+                                        <span class="optional">(optionnel)</span>
+                                    </label>
+                                    <input 
+                                        type="email" 
+                                        id="template-from" 
+                                        name="fromEmail" 
+                                        class="form-input" 
+                                        placeholder="ex: noreply@domain.com"
+                                    >
+                                    <small class="form-hint">Si non spécifié, l'email par défaut sera utilisé</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h4 class="form-section-title">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                </svg>
+                                Contenu de l'email
+                            </h4>
+                            
+                            <div class="form-group">
+                                <label for="template-subject" class="form-label">
+                                    Sujet de l'email
+                                    <span class="required">*</span>
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="template-subject" 
+                                    name="subject" 
+                                    class="form-input" 
+                                    placeholder="ex: Bienvenue {{name}} !"
+                                    required
+                                >
+                                <small class="form-hint">Utilisez {{paramètre}} pour les variables dynamiques</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="template-html" class="form-label">
+                                    Contenu HTML
+                                    <span class="required">*</span>
+                                </label>
+                                <div class="textarea-container">
+                                    <textarea 
+                                        id="template-html" 
+                                        name="html" 
+                                        class="form-input form-textarea code-editor" 
+                                        placeholder="<h1>Bonjour {{name}} !</h1><p>Merci de vous être inscrit avec l'email {{email}}.</p>"
+                                        required
+                                    ></textarea>
+                                    <div class="textarea-actions">
+                                        <button type="button" id="format-html" class="btn btn-ghost btn-sm">
+                                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                            </svg>
+                                            Formater
+                                        </button>
+                                        <button type="button" id="preview-html" class="btn btn-ghost btn-sm">
+                                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                            </svg>
+                                            Aperçu
+                                        </button>
+                                    </div>
+                                </div>
+                                <small class="form-hint">
+                                    Écrivez votre email en HTML. Les variables entre {{}} seront remplacées automatiquement.
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h4 class="form-section-title">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a1.994 1.994 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                                </svg>
+                                Paramètres détectés
+                            </h4>
+                            
+                            <div id="template-params-preview" class="params-preview hidden">
+                                <div class="params-grid" id="params-list"></div>
+                                <small class="form-hint">
+                                    Ces paramètres seront requis lors de l'envoi d'un email avec ce template.
+                                </small>
+                            </div>
+                            
+                            <div id="no-params-message" class="empty-params">
+                                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                <span>Aucun paramètre détecté. Ajoutez {{nomParametre}} dans votre contenu.</span>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="modal-footer">
+                <div class="modal-footer-left">
+                    <button id="test-template" class="btn btn-secondary" type="button">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                        </svg>
+                        Tester
+                    </button>
+                </div>
+                <div class="modal-footer-right">
+                    <button id="cancel-template" class="btn btn-outline" type="button">Annuler</button>
+                    <button id="save-template" class="btn btn-primary" type="button">
+                        <span class="save-text">Enregistrer</span>
+                        <span class="loading hidden">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="animate-spin">
+                                <path opacity=".5" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                            </svg>
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal pour tester un template -->
+    <div id="test-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Tester le Template</h3>
+                <button id="close-test-modal" class="btn btn-ghost btn-sm modal-close">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="modal-content">
+                <div class="test-info-card">
+                    <div class="test-info-icon">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <div class="test-info-content">
+                        <h4>Test d'envoi</h4>
+                        <p>Cet email sera marqué avec <code>[TEST]</code> dans le sujet. Les paramètres non fournis seront remplacés par des valeurs de démonstration.</p>
+                    </div>
+                </div>
+
+                <form id="test-form">
+                    <div class="form-group">
+                        <label for="test-email" class="form-label">
+                            Email de destination
+                            <span class="required">*</span>
+                        </label>
+                        <input 
+                            type="email" 
+                            id="test-email" 
+                            name="to" 
+                            class="form-input" 
+                            placeholder="test@example.com"
+                            required
+                        >
+                        <small class="form-hint">L'email de test sera envoyé à cette adresse</small>
+                    </div>
+
+                    <div id="test-params-container" class="test-params">
+                        <!-- Les paramètres du template seront ajoutés ici dynamiquement -->
+                    </div>
+                </form>
+            </div>
+            
+            <div class="modal-footer">
+                <div class="modal-footer-right">
+                    <button id="cancel-test" class="btn btn-outline">Annuler</button>
+                    <button id="send-test" class="btn btn-primary">
+                        <span class="test-text">Envoyer Test</span>
+                        <span class="loading hidden">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="animate-spin">
+                                <path opacity=".5" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                            </svg>
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de prévisualisation HTML -->
+    <div id="preview-modal" class="modal-overlay hidden">
+        <div class="modal modal-large">
+            <div class="modal-header">
+                <h3 class="modal-title">Aperçu du Template</h3>
+                <button id="close-preview-modal" class="btn btn-ghost btn-sm modal-close">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-content">
+                <div class="preview-container">
+                    <div class="preview-device">
+                        <div class="device-frame">
+                            <div class="device-header">
+                                <div class="device-controls">
+                                    <span class="device-control red"></span>
+                                    <span class="device-control yellow"></span>
+                                    <span class="device-control green"></span>
+                                </div>
+                                <div class="device-title">Aperçu Email</div>
+                            </div>
+                            <div class="device-content">
+                                <iframe id="preview-frame" class="preview-iframe"></iframe>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="close-preview" class="btn btn-outline">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Container -->
+    <div id="notification-container" class="notification-container"></div>
+
+    <!-- Scripts -->
+    <script src="/script.js"></script>
+
+    <!-- Styles supplémentaires pour les nouveaux composants -->
+    <style>
+        /* Header amélioré */
+        .header-brand {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .header-subtitle {
+            color: hsl(var(--muted-foreground));
+            font-size: 0.875rem;
+            font-weight: normal;
+        }
+
+        .session-info {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.25rem;
+        }
+
+        .session-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            color: hsl(var(--foreground));
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: hsl(var(--muted));
+        }
+
+        .status-indicator.online {
+            background-color: hsl(142.1 76.2% 36.3%);
+            box-shadow: 0 0 0 2px hsl(142.1 76.2% 36.3% / 0.2);
+        }
+
+        .session-details {
+            font-size: 0.75rem;
+            color: hsl(var(--muted-foreground));
+        }
+
+        /* Navigation avec icônes */
+        .nav-tab {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-tab svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Layout principal */
+        .main-content {
+            padding: 2rem 0;
+            min-height: calc(100vh - 120px);
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 2rem;
+        }
+
+        .page-header-content h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: hsl(var(--foreground));
+            margin-bottom: 0.25rem;
+        }
+
+        .page-description {
+            color: hsl(var(--muted-foreground));
+            font-size: 0.875rem;
+        }
+
+        .page-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        /* Statistiques du dashboard */
+        .stat-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .stat-icon-primary {
+            background-color: hsl(220.9 39.3% 11% / 0.1);
+            color: hsl(220.9 39.3% 11%);
+        }
+
+        .stat-icon-success {
+            background-color: hsl(142.1 76.2% 36.3% / 0.1);
+            color: hsl(142.1 76.2% 36.3%);
+        }
+
+        .stat-icon-warning {
+            background-color: hsl(45.4 93.4% 47.5% / 0.1);
+            color: hsl(45.4 93.4% 47.5%);
+        }
+
+        .stat-info {
+            flex: 1;
+        }
+
+        .stat-title {
+            font-size: 0.875rem;
+            color: hsl(var(--muted-foreground));
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: hsl(var(--foreground));
+        }
+
+        .stat-footer {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .stat-change {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.75rem;
+            color: hsl(var(--muted-foreground));
+        }
+
+        .stat-change.positive {
+            color: hsl(142.1 76.2% 36.3%);
+        }
+
+        .stat-change svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Grid layouts */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.5rem;
+        }
+
+        .dashboard-card {
+            height: fit-content;
+        }
+
+        /* Liste des templates populaires */
+        .template-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .template-item {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            padding: 1rem;
+            background-color: hsl(var(--muted) / 0.1);
+            border-radius: var(--radius);
+            border: 1px solid hsl(var(--border));
+        }
+
+        .template-item-info {
+            flex: 1;
+        }
+
+        .template-item-name {
+            font-weight: 500;
+            color: hsl(var(--foreground));
+            margin-bottom: 0.25rem;
+        }
+
+        .template-item-meta {
+            font-size: 0.75rem;
+            color: hsl(var(--muted-foreground));
+        }
+
+        .template-item-stats {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.25rem;
+        }
+
+        .template-item-count {
+            font-weight: 600;
+            color: hsl(var(--foreground));
+        }
+
+        .template-item-rate {
+            font-size: 0.75rem;
+            color: hsl(var(--muted-foreground));
+        }
+
+        /* Barre de filtres */
+        .filter-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background-color: hsl(var(--muted) / 0.1);
+            border-radius: var(--radius);
+            border: 1px solid hsl(var(--border));
+        }
+
+        .filter-search,
+        .filter-actions,
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .filter-label {
+            font-size: 0.875rem;
+            color: hsl(var(--muted-foreground));
+            white-space: nowrap;
+        }
+
+        .search-input-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .search-input-container svg {
+            position: absolute;
+            left: 0.75rem;
+            color: hsl(var(--muted-foreground));
+            pointer-events: none;
+        }
+
+        .search-input {
+            padding-left: 2.5rem;
+            min-width: 250px;
+        }
+
+        /* Cards de contenu */
+        .content-card {
+            background-color: hsl(var(--card));
+            border: 1px solid hsl(var(--border));
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        /* États vides */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem;
+            text-align: center;
+        }
+
+        .empty-state-icon {
+            margin-bottom: 1rem;
+            color: hsl(var(--muted-foreground));
+        }
+
+        .empty-state-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: hsl(var(--foreground));
+            margin-bottom: 0.5rem;
+        }
+
+        .empty-state-description {
+            color: hsl(var(--muted-foreground));
+            margin-bottom: 1.5rem;
+            max-width: 400px;
+        }
+
+        /* États de chargement */
+        .loading-cell {
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .loading-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            color: hsl(var(--muted-foreground));
+        }
+
+        .loading-spinner {
+            width: 2rem;
+            height: 2rem;
+            border: 2px solid hsl(var(--muted));
+            border-radius: 50%;
+            border-top-color: hsl(var(--primary));
+            animation: spin 1s linear infinite;
+        }
+
+        /* Pagination */
+        .table-pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            border-top: 1px solid hsl(var(--border));
+            background-color: hsl(var(--muted) / 0.1);
+        }
+
+        .pagination-info {
+            font-size: 0.875rem;
+            color: hsl(var(--muted-foreground));
+        }
+
+        .pagination-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .pagination-numbers {
+            display: flex;
+            gap: 0.25rem;
+        }
+
+        .pagination-number {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+            border-radius: var(--radius);
+            cursor: pointer;
+            color: hsl(var(--muted-foreground));
+        }
+
+        .pagination-number.active {
+            background-color: hsl(var(--primary));
+            color: hsl(var(--primary-foreground));
+        }
+
+        .pagination-number:hover:not(.active) {
+            background-color: hsl(var(--accent));
+        }
+
+        /* Statistiques détaillées */
+        .stats-overview {
+            margin-bottom: 2rem;
+        }
+
+        .stats-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .stat-mini-card {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background-color: hsl(var(--card));
+            border: 1px solid hsl(var(--border));
+            border-radius: var(--radius);
+        }
+
+        .stat-mini-card.success {
+            border-color: hsl(142.1 76.2% 36.3% / 0.2);
+            background-color: hsl(142.1 76.2% 36.3% / 0.05);
+        }
+
+        .stat-mini-card.error {
+            border-color: hsl(var(--destructive) / 0.2);
+            background-color: hsl(var(--destructive) / 0.05);
+        }
+
+        .stat-mini-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: hsl(var(--muted));
+            color: hsl(var(--muted-foreground));
+            flex-shrink: 0;
+        }
+
+        .stat-mini-card.success .stat-mini-icon {
+            background-color: hsl(142.1 76.2% 36.3% / 0.1);
+            color: hsl(142.1 76.2% 36.3%);
+        }
+
+        .stat-mini-card.error .stat-mini-icon {
+            background-color: hsl(var(--destructive) / 0.1);
+            color: hsl(var(--destructive));
+        }
+
+        .stat-mini-content {
+            flex: 1;
+        }
+
+        .stat-mini-label {
+            font-size: 0.75rem;
+            color: hsl(var(--muted-foreground));
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-mini-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: hsl(var(--foreground));
+        }
+
+        /* Modal amélioré */
+        .modal-large {
+            max-width: 80vw;
+            max-height: 90vh;
+        }
+
+        .modal-close:hover {
+            background-color: hsl(var(--destructive) / 0.1);
+            color: hsl(var(--destructive));
+        }
+
+        .form-sections {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .form-section {
+            border: 1px solid hsl(var(--border));
+            border-radius: var(--radius);
+            padding: 1.5rem;
+        }
+
+        .form-section-title {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            color: hsl(var(--foreground));
+            margin-bottom: 1rem;
+        }
+
+        .form-section-title svg {
+            color: hsl(var(--muted-foreground));
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .form-hint {
+            color: hsl(var(--muted-foreground));
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
+        }
+
+        .required {
+            color: hsl(var(--destructive));
+        }
+
+        .optional {
+            color: hsl(var(--muted-foreground));
+            font-weight: normal;
+        }
+
+        .textarea-container {
+            position: relative;
+        }
+
+        .code-editor {
+            font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
+            font-size: 0.875rem;
+            min-height: 200px;
+            resize: vertical;
+        }
+
+        .textarea-actions {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            display: flex;
+            gap: 0.25rem;
+        }
+
+        .params-preview {
+            margin-top: 1rem;
+        }
+
+        .params-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .param-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            background-color: hsl(var(--secondary));
+            color: hsl(var(--secondary-foreground));
+            border-radius: var(--radius);
+            font-size: 0.75rem;
+            font-family: monospace;
+        }
+
+        .empty-params {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1rem;
+            background-color: hsl(var(--muted) / 0.1);
+            border-radius: var(--radius);
+            color: hsl(var(--muted-foreground));
+            font-size: 0.875rem;
+        }
+
+        .empty-params svg {
+            flex-shrink: 0;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-footer-left,
+        .modal-footer-right {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        /* Modal de test */
+        .test-info-card {
+            display: flex;
+            gap: 1rem;
+            padding: 1rem;
+            background-color: hsl(212.7 26.8% 83.9% / 0.1);
+            border: 1px solid hsl(212.7 26.8% 83.9% / 0.2);
+            border-radius: var(--radius);
+            margin-bottom: 1.5rem;
+        }
+
+        .test-info-icon {
+            flex-shrink: 0;
+            color: hsl(212.7 26.8% 83.9%);
+        }
+
+        .test-info-content h4 {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: hsl(var(--foreground));
+            margin-bottom: 0.25rem;
+        }
+
+        .test-info-content p {
+            font-size: 0.75rem;
+            color: hsl(var(--muted-foreground));
+            line-height: 1.4;
+        }
+
+        .test-info-content code {
+            background-color: hsl(var(--muted));
+            padding: 0.125rem 0.25rem;
+            border-radius: 0.25rem;
+            font-size: 0.65rem;
+        }
+
+        .test-params {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .test-param-group {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 1rem;
+            align-items: end;
+        }
+
+        .test-param-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .test-param-name {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: hsl(var(--foreground));
+            font-family: monospace;
+        }
+
+        .test-param-description {
+            font-size: 0.75rem;
+            color: hsl(var(--muted-foreground));
+        }
+
+        /* Prévisualisation */
+        .preview-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            background-color: hsl(var(--muted) / 0.1);
+            border-radius: var(--radius);
+        }
+
+        .preview-device {
+            background-color: hsl(var(--card));
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 25px -5px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.05);
+            overflow: hidden;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .device-frame {
+            border: 1px solid hsl(var(--border));
+            border-radius: 0.75rem;
+            overflow: hidden;
+        }
+
+        .device-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1rem;
+            background-color: hsl(var(--muted) / 0.5);
+            border-bottom: 1px solid hsl(var(--border));
+        }
+
+        .device-controls {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .device-control {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .device-control.red {
+            background-color: #ff5f56;
+        }
+
+        .device-control.yellow {
+            background-color: #ffbd2e;
+        }
+
+        .device-control.green {
+            background-color: #27ca3f;
+        }
+
+        .device-title {
+            font-size: 0.875rem;
+            color: hsl(var(--muted-foreground));
+            font-weight: 500;
+        }
+
+        .device-content {
+            height: 500px;
+            background-color: white;
+        }
+
+        .preview-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background-color: white;
+        }
+
+        /* Notifications */
+        .notification-container {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            pointer-events: none;
+        }
+
+        .notification {
+            pointer-events: auto;
+            padding: 1rem;
+            border-radius: var(--radius);
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06);
+            max-width: 400px;
+            animation: slideInNotification 0.3s ease-out;
+        }
+
+        .notification.removing {
+            animation: slideOutNotification 0.3s ease-in;
+        }
+
+        @keyframes slideInNotification {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOutNotification {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
+        /* Animation de rotation */
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: stretch;
+            }
+
+            .header-actions {
+                flex-direction: row;
+                justify-content: space-between;
+            }
+
+            .session-info {
+                align-items: flex-start;
+            }
+
+            .page-header {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: stretch;
+            }
+
+            .page-actions {
+                justify-content: stretch;
+            }
+
+            .page-actions .btn {
+                flex: 1;
+                justify-content: center;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .filter-bar {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 1rem;
+            }
+
+            .filter-search .search-input {
+                min-width: auto;
+                width: 100%;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .modal {
+                margin: 1rem;
+                max-width: calc(100vw - 2rem);
+                max-height: calc(100vh - 2rem);
+            }
+
+            .modal-large {
+                max-width: calc(100vw - 1rem);
+                max-height: calc(100vh - 1rem);
+                margin: 0.5rem;
+            }
+
+            .test-param-group {
+                grid-template-columns: 1fr;
+            }
+
+            .table-container {
+                overflow-x: auto;
+            }
+
+            .table {
+                min-width: 600px;
+            }
+
+            .table-pagination {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: stretch;
+            }
+
+            .pagination-controls {
+                justify-content: center;
+            }
+
+            .notification {
+                max-width: calc(100vw - 2rem);
+                margin: 0 1rem;
+            }
+        }
+
+        /* Mode sombre spécifique */
+        @media (prefers-color-scheme: dark) {
+            .device-content,
+            .preview-iframe {
+                background-color: #1a1a1a;
+            }
+        }
+
+        /* Focus states améliorés */
+        .btn:focus-visible,
+        .form-input:focus-visible,
+        .form-select:focus-visible {
+            outline: 2px solid hsl(var(--ring));
+            outline-offset: 2px;
+        }
+
+        .nav-tab:focus-visible {
+            outline: 2px solid hsl(var(--ring));
+            outline-offset: -2px;
+        }
+
+        /* États de survol pour les cartes */
+        .stat-card:hover {
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06);
+            transition: box-shadow 0.2s ease;
+        }
+
+        .template-item:hover {
+            background-color: hsl(var(--muted) / 0.2);
+            transition: background-color 0.2s ease;
+        }
+
+        /* Amélioration des tableaux */
+        .table tbody tr:hover {
+            background-color: hsl(var(--muted) / 0.1);
+        }
+
+        .table th {
+            position: sticky;
+            top: 0;
+            background-color: hsl(var(--muted));
+            z-index: 10;
+        }
+
+        /* Indicateurs de performance */
+        .performance-bar {
+            width: 100px;
+            height: 8px;
+            background-color: hsl(var(--muted));
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .performance-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .performance-excellent {
+            background-color: hsl(142.1 76.2% 36.3%);
+        }
+
+        .performance-good {
+            background-color: hsl(45.4 93.4% 47.5%);
+        }
+
+        .performance-poor {
+            background-color: hsl(var(--destructive));
+        }
+
+        /* Skeleton loading */
+        .skeleton {
+            background: linear-gradient(90deg, 
+                hsl(var(--muted)) 25%, 
+                hsl(var(--muted) / 0.5) 50%, 
+                hsl(var(--muted)) 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+            border-radius: var(--radius);
+        }
+
+        @keyframes loading {
+            0% {
+                background-position: 200% 0;
+            }
+            100% {
+                background-position: -200% 0;
+            }
+        }
+    </style>
+</body>
+</html>

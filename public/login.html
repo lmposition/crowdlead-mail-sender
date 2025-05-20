@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion - Email Manager</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="icon" type="image/x-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0ibTQgNCA2IDAgMCA2LTYgMCAwLTZ6IiBmaWxsPSIjMDA5OGY3Ii8+CjxwYXRoIGQ9Im0xNCA0IDYgMCAwIDYtNiAwIDAtNnoiIGZpbGw9IiMwMDk4ZjciLz4KPHA8cGF0aCBkPSJtNDE0IDQgNiAwIDYgMCAwNi02IDAiIGZpbGw9IiMwMDk4ZjciLz4KPHA8cGF0aCBkPSJtNDE0IDE0IDYgMCAwIDYtNiAwIDAtNnoiIGZpbGw9IiMwMDk4ZjciLz4KPC9zdmc+">
+</head>
+<body>
+    <div class="login-container">
+        <div class="card login-card">
+            <div class="card-content">
+                <div class="login-header">
+                    <h1 class="login-title">Email Manager</h1>
+                    <p class="login-subtitle">Connectez-vous à votre espace d'administration</p>
+                </div>
+
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="password" class="form-label">Mot de passe</label>
+                        <input 
+                            type="password" 
+                            id="password" 
+                            name="password" 
+                            class="form-input" 
+                            placeholder="Votre mot de passe"
+                            required
+                            autocomplete="current-password"
+                        >
+                    </div>
+
+                    <div id="error-message" class="alert alert-error hidden">
+                        <span id="error-text"></span>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-full" id="loginButton">
+                        <span class="login-text">Se connecter</span>
+                        <span class="loading hidden" id="loginLoading"></span>
+                    </button>
+                </form>
+
+                <div class="mt-6 text-center">
+                    <p class="text-sm text-muted-foreground">
+                        Besoin d'aide ? Consultez la documentation ou contactez l'administrateur.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Utilitaires
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            const errorText = document.getElementById('error-text');
+            errorText.textContent = message;
+            errorDiv.classList.remove('hidden');
+        }
+
+        function hideError() {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.classList.add('hidden');
+        }
+
+        function setLoading(loading) {
+            const button = document.getElementById('loginButton');
+            const loadingSpinner = document.getElementById('loginLoading');
+            const loginText = document.querySelector('.login-text');
+            
+            if (loading) {
+                button.disabled = true;
+                loadingSpinner.classList.remove('hidden');
+                loginText.textContent = 'Connexion...';
+            } else {
+                button.disabled = false;
+                loadingSpinner.classList.add('hidden');
+                loginText.textContent = 'Se connecter';
+            }
+        }
+
+        // Vérifier si déjà connecté
+        async function checkAuthStatus() {
+            try {
+                const response = await fetch('/admin/check', {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.data.authenticated) {
+                        window.location.href = '/admin';
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.log('Non connecté');
+            }
+        }
+
+        // Gestionnaire de soumission du formulaire
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideError();
+            setLoading(true);
+
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('/admin/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Connexion réussie - rediriger vers l'admin
+                    window.location.href = '/admin';
+                } else {
+                    showError(data.error || 'Erreur de connexion');
+                    setLoading(false);
+                }
+            } catch (error) {
+                console.error('Erreur lors de la connexion:', error);
+                showError('Erreur de connexion. Veuillez réessayer.');
+                setLoading(false);
+            }
+        });
+
+        // Gestionnaire pour Enter sur le champ mot de passe
+        document.getElementById('password').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+            }
+        });
+
+        // Vérifier l'état d'authentification au chargement
+        checkAuthStatus();
+
+        // Ajout de styles supplémentaires pour la largeur complète
+        const style = document.createElement('style');
+        style.textContent = `
+            .w-full {
+                width: 100%;
+            }
+            .mt-6 {
+                margin-top: 1.5rem;
+            }
+            .text-center {
+                text-align: center;
+            }
+            .text-sm {
+                font-size: 0.875rem;
+            }
+            .text-muted-foreground {
+                color: hsl(var(--muted-foreground));
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

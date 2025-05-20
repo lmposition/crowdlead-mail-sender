@@ -840,29 +840,39 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 
 // API Handlers pour la gestion des templates (sécurisés)
 func getTemplatesHandler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("🔍 GET /api/templates - Récupération des templates")
+	
 	templates, err := templateManager.GetAllTemplates()
 	if err != nil {
-		log.Printf("Erreur récupération templates: %v", err)
+		log.Printf("❌ Erreur récupération templates: %v", err)
 		http.Error(w, "Erreur interne", http.StatusInternalServerError)
 		return
 	}
 
+	log.Printf("✅ Templates récupérés: %d trouvés", len(templates))
+	
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(templates); err != nil {
-		log.Printf("Erreur encoding templates: %v", err)
+		log.Printf("❌ Erreur encoding templates: %v", err)
 		http.Error(w, "Erreur interne", http.StatusInternalServerError)
 	}
 }
 
 func addTemplateHandler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("➕ POST /api/templates - Ajout d'un template")
+	
 	var template EmailTemplate
 	if err := json.NewDecoder(r.Body).Decode(&template); err != nil {
+		log.Printf("❌ Erreur décodage JSON: %v", err)
 		http.Error(w, "JSON invalide", http.StatusBadRequest)
 		return
 	}
 
+	log.Printf("📝 Données template reçues: ID=%s, Name=%s", template.ID, template.Name)
+
 	// Validation des champs requis
 	if template.ID == "" || template.Name == "" || template.Subject == "" || template.HTML == "" {
+		log.Printf("❌ Champs requis manquants")
 		http.Error(w, "ID, nom, sujet et HTML sont requis", http.StatusBadRequest)
 		return
 	}
@@ -871,6 +881,7 @@ func addTemplateHandler(w http.ResponseWriter, r *http.Request) {
 	for _, char := range template.ID {
 		if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || 
 			 (char >= '0' && char <= '9') || char == '_' || char == '-') {
+			log.Printf("❌ ID invalide: %s", template.ID)
 			http.Error(w, "L'ID ne peut contenir que des lettres, chiffres, tirets et underscores", http.StatusBadRequest)
 			return
 		}
@@ -878,10 +889,12 @@ func addTemplateHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Ajouter le template en base
 	if err := templateManager.AddTemplate(template); err != nil {
-		log.Printf("Erreur ajout template: %v", err)
+		log.Printf("❌ Erreur ajout template: %v", err)
 		http.Error(w, "Erreur ajout template: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	log.Printf("✅ Template ajouté avec succès: %s", template.ID)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -919,17 +932,22 @@ func getStatsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	templateID := vars["id"]
 	
+	log.Printf("📊 GET /api/stats/%s - Récupération des statistiques", templateID)
+	
 	if templateID == "" {
+		log.Printf("❌ ID template manquant")
 		http.Error(w, "ID requis", http.StatusBadRequest)
 		return
 	}
 	
 	stats, err := emailLogManager.GetStats(templateID)
 	if err != nil {
-		log.Printf("Erreur récupération stats: %v", err)
+		log.Printf("❌ Erreur récupération stats pour %s: %v", templateID, err)
 		http.Error(w, "Erreur interne", http.StatusInternalServerError)
 		return
 	}
+	
+	log.Printf("✅ Stats récupérées pour %s: %+v", templateID, stats)
 	
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(stats)

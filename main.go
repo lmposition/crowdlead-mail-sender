@@ -1,4 +1,8 @@
-package main
+	// Configurer les routes
+	r := mux.NewRouter()
+	
+	// Routes pour les fichiers statiques
+	r.PathPrefix("/static/").Handler(httppackage main
 
 import (
 	"bytes"
@@ -12,6 +16,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -756,142 +761,8 @@ func sendEmailHandler(w http.ResponseWriter, r *http.Request) {
 
 // Handler pour la page de login admin
 func loginPageHandler(w http.ResponseWriter, r *http.Request) {
-	html := `<!DOCTYPE html>
-<html>
-<head>
-    <title>Admin Login</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        :root {
-            --background: 222.2 84% 4.9%;
-            --foreground: 210 40% 98%;
-            --card: 222.2 84% 4.9%;
-            --card-foreground: 210 40% 98%;
-            --popover: 222.2 84% 4.9%;
-            --popover-foreground: 210 40% 98%;
-            --primary: 210 40% 98%;
-            --primary-foreground: 222.2 84% 4.9%;
-            --secondary: 217.2 32.6% 17.5%;
-            --secondary-foreground: 210 40% 98%;
-            --muted: 217.2 32.6% 17.5%;
-            --muted-foreground: 215 20.2% 65.1%;
-            --accent: 217.2 32.6% 17.5%;
-            --accent-foreground: 210 40% 98%;
-            --destructive: 0 62.8% 30.6%;
-            --destructive-foreground: 210 40% 98%;
-            --border: 217.2 32.6% 17.5%;
-            --input: 217.2 32.6% 17.5%;
-            --ring: 212.7 26.8% 83.9%;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background: hsl(var(--background));
-            color: hsl(var(--foreground));
-            line-height: 1.5;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .login-container {
-            width: 100%;
-            max-width: 400px;
-            padding: 2rem;
-            background: hsl(var(--card));
-            border: 1px solid hsl(var(--border));
-            border-radius: 0.75rem;
-            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.05);
-        }
-
-        .logo {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-
-        .logo h1 {
-            font-size: 1.875rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-
-        .logo p {
-            color: hsl(var(--muted-foreground));
-            font-size: 0.875rem;
-        }
-
-        .form-group {
-            margin-bottom: 1rem;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-
-        input {
-            width: 100%;
-            padding: 0.75rem;
-            background: hsl(var(--input));
-            border: 1px solid hsl(var(--border));
-            border-radius: 0.375rem;
-            color: hsl(var(--foreground));
-            font-size: 0.875rem;
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }
-
-        input:focus {
-            outline: none;
-            border-color: hsl(var(--ring));
-            box-shadow: 0 0 0 2px hsl(var(--ring) / 0.2);
-        }
-
-        button {
-            width: 100%;
-            padding: 0.75rem;
-            background: hsl(var(--primary));
-            color: hsl(var(--primary-foreground));
-            border: none;
-            border-radius: 0.375rem;
-            font-size: 0.875rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        button:hover {
-            background: hsl(var(--primary) / 0.9);
-        }
-
-        button:disabled {
-            background: hsl(var(--muted));
-            color: hsl(var(--muted-foreground));
-            cursor: not-allowed;
-        }
-
-        .error {
-            color: hsl(var(--destructive));
-            font-size: 0.875rem;
-            margin-top: 0.5rem;
-            text-align: center;
-        }
-
-        .spinner {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 2px solid hsl(var(--primary-foreground) / 0.3);
-            border-radius: 50%;
+	http.ServeFile(w, r, "./static/login.html")
+}border-radius: 50%;
             border-top-color: hsl(var(--primary-foreground));
             animation: spin 0.8s ease-in-out infinite;
             margin-right: 0.5rem;
@@ -1903,6 +1774,9 @@ func main() {
 
 	// Configurer les routes
 	r := mux.NewRouter()
+	
+	// Routes pour les fichiers statiques
+	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./static/"))))
 	
 	// Routes publiques pour l'envoi d'emails (protégées par API key)
 	r.HandleFunc("/email/{template}", apiKeyMiddleware(sendEmailHandler)).Methods("POST")

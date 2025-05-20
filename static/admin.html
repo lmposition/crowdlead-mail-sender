@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Manager - Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --border-color: #30363d;
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            --text-muted: #656d76;
+            --accent-blue: #2188ff;
+            --accent-green: #238636;
+            --accent-red: #da3633;
+            --accent-orange: #fd7e14;
+            --hover-bg: #262c36;
+            --input-bg: #0d1117;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--shadow);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+            background: transparent;
+            color: var(--text-primary);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background-color: #1f7ce8;
+            border-color: #1f7ce8;
+        }
+
+        .btn-success {
+            background-color: var(--accent-green);
+            border-color: var(--accent-green);
+            color: white;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background-color: #2ea043;
+            border-color: #2ea043;
+        }
+
+        .btn-danger {
+            background-color: var(--accent-red);
+            border-color: var(--accent-red);
+            color: white;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background-color: #e5534b;
+            border-color: #e5534b;
+        }
+
+        .btn-secondary {
+            background-color: var(--bg-tertiary);
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background-color: var(--hover-bg);
+            border-color: #444c56;
+        }
+
+        .btn-outline {
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .btn-outline:hover:not(:disabled) {
+            background-color: var(--hover-bg);
+            border-color: #444c56;
+        }
+
+        .tabs {
+            display: flex;
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 4px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px 16px;
+            text-align: center;
+            border-radius: 8px;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            background-color: var(--accent-blue);
+            color: white;
+            box-shadow: 0 1px 3px rgba(33, 136, 255, 0.3);
+        }
+
+        .tab:hover:not(.active) {
+            background-color: var(--hover-bg);
+            color: var(--text-primary);
+        }
+
+        .card {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow);
+        }
+
+        .card h2 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text-primary);
+        }
+
+        .card h3 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--accent-blue);
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 14px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px rgba(33, 136, 255, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .api-key-section {
+            background: linear-gradient(135deg, var(--bg-tertiary), var(--bg-secondary));
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .api-key {
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+            background-color: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px;
+            font-size: 13px;
+            word-break: break-all;
+            color: var(--accent-green);
+            margin: 12px 0;
+        }
+
+        .template-item {
+            background-color: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 16px;
+            position: relative;
+            transition: border-color 0.2s;
+        }
+
+        .template-item:hover {
+            border-color: var(--accent-blue);
+        }
+
+        .template-stats {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background-color: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 4px 12px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .template-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        pre {
+            background-color: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px;
+            overflow-x: auto;
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin: 8px 0;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin: 16px 0;
+        }
+
+        .stats-card {
+            background-color: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .stats-number {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--accent-blue);
+            margin-bottom: 4px;
+        }
+
+        .stats-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin: 12px 0;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .alert-success {
+            background-color: rgba(35, 134, 54, 0.15);
+            border: 1px solid var(--accent-green);
+            color: #7bc96f;
+        }
+
+        .alert-error {
+            background-color: rgba(218, 54, 51, 0.15);
+            border: 1px solid var(--accent-red);
+            color: #ff7b72;
+        }
+
+        .loading {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border-color);
+            border-top: 2px solid var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .param-input {
+            margin-bottom: 12px;
+        }
+
+        .template-summary p {
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .template-summary strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                gap: 16px;
+                text-align: center;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+
+            .template-stats {
+                position: static;
+                margin-bottom: 16px;
+                display: inline-block;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📧 Email Manager</h1>
+            <button class="btn btn-secondary" onclick="logout()">
+                <span>🚪</span> Déconnexion
+            </button>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('templates')">
+                <span>📝</span> Templates
+            </button>
+            <button class="tab" onclick="showTab('stats')">
+                <span>📊</span> Statistiques
+            </button>
+        </div>
+
+        <!-- Templates Tab -->
+        <div id="templatesTab" class="tab-content active">
+            <div class="api-key-section">
+                <h3>🔑 Clé API</h3>
+                <p style="color: var(--text-secondary); margin-bottom: 12px;">
+                    Utilisez cette clé dans le header <code>X-API-Key</code> pour envoyer des emails :
+                </p>
+                <div class="api-key" id="apiKey">{{.APIKey}}</div>
+                <button class="btn btn-outline" onclick="copyApiKey()">
+                    <span>📋</span> Copier
+                </button>
+            </div>
+
+            <div class="card">
+                <h2>➕ Ajouter un nouveau template</h2>
+                <form id="addTemplateForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="templateId">ID du template *</label>
+                            <input type="text" id="templateId" placeholder="ex: welcome" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="templateName">Nom du template *</label>
+                            <input type="text" id="templateName" placeholder="ex: Email de bienvenue" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="templateSubject">Sujet *</label>
+                        <input type="text" id="templateSubject" placeholder="ex: Bienvenue {{.first_name}}!" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="templateHTML">Contenu HTML *</label>
+                        <textarea id="templateHTML" rows="6" placeholder="ex: <h1>Bonjour {{.first_name}}!</h1><p>Nous sommes ravis de vous avoir parmi nous.</p>" required></textarea>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="templateParams">Paramètres (séparés par des virgules)</label>
+                            <input type="text" id="templateParams" placeholder="ex: first_name,last_name">
+                        </div>
+                        <div class="form-group">
+                            <label for="templateFromEmail">Email expéditeur (optionnel)</label>
+                            <input type="email" id="templateFromEmail" placeholder="ex: noreply@example.com">
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <span>✨</span> <span id="addButtonText">Ajouter Template</span>
+                    </button>
+                </form>
+                <div id="addTemplateMessage"></div>
+            </div>
+
+            <div class="card">
+                <h2>🧪 Tester un email</h2>
+                <form id="testEmailForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="testTemplateId">Template *</label>
+                            <select id="testTemplateId" required>
+                                <option value="">Sélectionner un template</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="testEmail">Email destinataire *</label>
+                            <input type="email" id="testEmail" placeholder="test@example.com" required>
+                        </div>
+                    </div>
+                    
+                    <div id="paramInputs"></div>
+                    
+                    <button type="submit" class="btn btn-success">
+                        <span>🚀</span> <span id="testButtonText">Envoyer Test</span>
+                    </button>
+                </form>
+                <div id="testEmailMessage"></div>
+            </div>
+
+            <div class="card">
+                <h2>📋 Templates existants</h2>
+                <div id="templatesLoading" class="loading hidden">
+                    <div class="spinner"></div>
+                    <span>Chargement des templates...</span>
+                </div>
+                <div id="templatesContainer"></div>
+            </div>
+        </div>
+
+        <!-- Stats Tab -->
+        <div id="statsTab" class="tab-content">
+            <div class="card">
+                <h2>📊 Statistiques d'envoi</h2>
+                <div id="statsLoading" class="loading hidden">
+                    <div class="spinner"></div>
+                    <span>Chargement des statistiques...</span>
+                </div>
+                <div id="statsContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/admin.js"></script>
+</body>
+</html>

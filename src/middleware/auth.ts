@@ -1,13 +1,4 @@
 import { Request, Response, NextFunction } from 'express';
-import { Database } from '../database';
-
-declare global {
-  namespace Express {
-    interface Request {
-      db: Database;
-    }
-  }
-}
 
 export const authenticateAdmin = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {

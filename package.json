@@ -4,11 +4,13 @@
   "description": "API de gestion d'emails avec interface d'administration",
   "main": "dist/server.js",
   "scripts": {
+    "setup": "node setup.js",
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "nodemon --exec ts-node src/server.ts",
     "type-check": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "postinstall": "npm run setup"
   },
   "dependencies": {
     "express": "^4.18.2",

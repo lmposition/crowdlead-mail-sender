@@ -77,3 +77,10 @@ export interface DashboardStats {
   recentLogs: EmailLog[];
   templatesStats: EmailStats[];
 }
+
+// Extensions pour les sessions Express
+declare module 'express-session' {
+  interface SessionData {
+    adminToken?: string;
+  }
+}

@@ -15,8 +15,12 @@
     "removeComments": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedIndexedAccess": true,
-    "typeRoots": ["./node_modules/@types", "./src/@types"]
+    "noUncheckedIndexedAccess": false,
+    "typeRoots": ["./node_modules/@types", "./src/@types"],
+    "baseUrl": "./src",
+    "paths": {
+      "*": ["*"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "public"]

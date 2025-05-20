@@ -9,6 +9,7 @@ const requiredDirs = [
   'src/@types',
   'src/middleware',
   'src/routes',
+  'src/utils',
   'public',
   'dist'
 ];

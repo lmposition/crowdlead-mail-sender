@@ -43,7 +43,7 @@ router.post('/:templateId', async (req: Request, res: Response) => {
     }
 
     // Vérifier que tous les paramètres requis sont fournis
-    const missingParams = template.params.filter(param => 
+    const missingParams = template.params.filter((param: string) => 
       templateParams[param] === undefined || templateParams[param] === null
     );
 

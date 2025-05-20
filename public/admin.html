@@ -1,4 +1,623 @@
-<!DOCTYPE html>
+<script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // AUTHENTIFICATION - Vérifie si l'utilisateur est connecté
+            (function checkAuth() {
+                // Si pas d'authentification dans localStorage, rediriger vers login
+                if (!localStorage.getItem('emailManagerAuth')) {
+                    console.log('Non authentifié, redirection vers login');
+                    window.location.href = '/admin/login';
+                    return;
+                }
+                
+                console.log('Authentification vérifiée');
+            })();
+
+            // GESTIONNAIRE DE DÉCONNEXION
+            document.getElementById('logoutBtn').addEventListener('click', async function() {
+                console.log('Déconnexion...');
+                try {
+                    // Tenter de déconnecter la session côté serveur
+                    await fetch('/admin/logout', {
+                        method: 'POST',
+                        credentials: 'include'
+                    });
+                } catch (err) {
+                    console.error('Erreur lors de la déconnexion côté serveur:', err);
+                } finally {
+                    // Supprimer l'état d'authentification et rediriger
+                    localStorage.removeItem('emailManagerAuth');
+                    localStorage.removeItem('emailManagerToken');
+                    window.location.href = '/admin/login';
+                }
+            });
+
+            // GESTIONNAIRE D'ONGLETS
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    // Désactiver tous les onglets
+                    tabs.forEach(t => t.classList.remove('active'));
+                    // Activer l'onglet cliqué
+                    this.classList.add('active');
+                    
+                    // Masquer tous les contenus d'onglets
+                    document.querySelectorAll('.tab-content').forEach(content => {
+                        content.classList.add('hidden');
+                    });
+                    
+                    // Afficher le contenu de l'onglet actif
+                    const tabId = this.getAttribute('data-tab');
+                    document.getElementById(`${tabId}-tab`).classList.remove('hidden');
+                    
+                    // Charger les données
+                    loadTabData(tabId);
+                });
+            });
+
+            // CHARGEMENT DES DONNÉES
+            function loadTabData(tab) {
+                switch (tab) {
+                    case 'dashboard':
+                        loadDashboardData();
+                        break;
+                    case 'templates':
+                        loadTemplatesData();
+                        break;
+                    case 'logs':
+                        loadLogsData();
+                        break;
+                    case 'stats':
+                        loadStatsData();
+                        break;
+                }
+            }
+
+            // DONNÉES DASHBOARD
+            function loadDashboardData() {
+                // Charger les logs récents
+                const recentLogsTable = document.getElementById('recentLogsTable');
+                recentLogsTable.innerHTML = '';
+                
+                for (let i = 0; i < 5; i++) {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>Template ${i+1}</td>
+                        <td>user${i+1}@example.com</td>
+                        <td>
+                            <span class="badge badge-success">Succès</span>
+                        </td>
+                        <td>${new Date().toLocaleDateString()}</td>
+                    `;
+                    recentLogsTable.appendChild(row);
+                }
+            }
+
+            // GESTION DES TEMPLATES
+            // Variables globales pour les templates
+            let currentTemplates = [];
+            let currentTemplateId = null;
+            
+            // Fonction pour extraire les paramètres d'un template
+            function extractParams(text) {
+                const regex = /\{\{(\w+)\}\}/g;
+                const params = new Set();
+                let match;
+                
+                while ((match = regex.exec(text)) !== null) {
+                    params.add(match[1]);
+                }
+                
+                return Array.from(params);
+            }
+            
+            // Fonction pour afficher les paramètres détectés
+            function showDetectedParams(html, subject) {
+                const paramsPreview = document.getElementById('paramsPreview');
+                const detectedParams = document.getElementById('detectedParams');
+                
+                // Extraire les paramètres du HTML et du sujet
+                const htmlParams = extractParams(html || '');
+                const subjectParams = extractParams(subject || '');
+                const allParams = [...new Set([...htmlParams, ...subjectParams])];
+                
+                if (allParams.length > 0) {
+                    // Afficher les paramètres
+                    detectedParams.innerHTML = '';
+                    allParams.forEach(param => {
+                        const span = document.createElement('span');
+                        span.className = 'tag';
+                        span.textContent = `{{${param}}}`;
+                        span.style.background = 'rgba(106, 90, 205, 0.1)';
+                        span.style.color = '#a98dff';
+                        span.style.padding = '3px 8px';
+                        span.style.borderRadius = '4px';
+                        span.style.fontSize = '12px';
+                        span.style.fontFamily = 'monospace';
+                        detectedParams.appendChild(span);
+                    });
+                    paramsPreview.style.display = 'block';
+                } else {
+                    paramsPreview.style.display = 'none';
+                }
+                
+                // Retourner les paramètres pour une utilisation ultérieure
+                return allParams;
+            }
+            
+            // Événements pour le HTML et le sujet pour détecter les paramètres
+            document.getElementById('templateHtml').addEventListener('input', function() {
+                const html = this.value;
+                const subject = document.getElementById('templateSubject').value;
+                showDetectedParams(html, subject);
+            });
+            
+            document.getElementById('templateSubject').addEventListener('input', function() {
+                const subject = this.value;
+                const html = document.getElementById('templateHtml').value;
+                showDetectedParams(html, subject);
+            });
+            
+            // Modal des templates
+            const templateModal = document.getElementById('templateModal');
+            const templateForm = document.getElementById('templateForm');
+            const addTemplateBtn = document.getElementById('addTemplateBtn');
+            const closeTemplateModal = document.getElementById('closeTemplateModal');
+            const cancelTemplateBtn = document.getElementById('cancelTemplateBtn');
+            
+            // Ouvrir le modal pour ajouter un template
+            addTemplateBtn.addEventListener('click', function() {
+                document.getElementById('templateModalTitle').textContent = 'Nouveau Template';
+                document.getElementById('templateId').value = '';
+                document.getElementById('templateName').value = '';
+                document.getElementById('templateSubject').value = '';
+                document.getElementById('templateFromEmail').value = '';
+                document.getElementById('templateHtml').value = '';
+                document.getElementById('paramsPreview').style.display = 'none';
+                templateModal.style.display = 'block';
+            });
+            
+            // Fermer le modal
+            closeTemplateModal.addEventListener('click', function() {
+                templateModal.style.display = 'none';
+            });
+            
+            cancelTemplateBtn.addEventListener('click', function() {
+                templateModal.style.display = 'none';
+            });
+            
+            // Soumettre le formulaire de template
+            templateForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const templateId = document.getElementById('templateId').value;
+                const templateData = {
+                    name: document.getElementById('templateName').value,
+                    subject: document.getElementById('templateSubject').value,
+                    fromEmail: document.getElementById('templateFromEmail').value || undefined,
+                    html: document.getElementById('templateHtml').value
+                };
+                
+                try {
+                    const token = localStorage.getItem('emailManagerToken');
+                    const headers = {
+                        'Content-Type': 'application/json',
+                        'Authorization': token ? `Bearer ${token}` : undefined
+                    };
+                    
+                    let response;
+                    
+                    if (templateId) {
+                        // Mise à jour d'un template existant
+                        response = await fetch(`/api/templates/${templateId}`, {
+                            method: 'PUT',
+                            headers,
+                            credentials: 'include',
+                            body: JSON.stringify(templateData)
+                        });
+                    } else {
+                        // Création d'un nouveau template
+                        response = await fetch('/api/templates', {
+                            method: 'POST',
+                            headers,
+                            credentials: 'include',
+                            body: JSON.stringify(templateData)
+                        });
+                    }
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        // Fermer le modal et recharger les templates
+                        templateModal.style.display = 'none';
+                        loadTemplatesData();
+                        alert(templateId ? 'Template mis à jour avec succès' : 'Template créé avec succès');
+                    } else {
+                        alert(`Erreur: ${result.error || 'Une erreur est survenue'}`);
+                    }
+                } catch (error) {
+                    console.error('Erreur lors de la sauvegarde du template:', error);
+                    alert('Erreur lors de la sauvegarde du template');
+                }
+            });
+            
+            // Modal de test
+            const testModal = document.getElementById('testModal');
+            const testForm = document.getElementById('testForm');
+            const testTemplateBtn = document.getElementById('testTemplateBtn');
+            const closeTestModal = document.getElementById('closeTestModal');
+            const cancelTestBtn = document.getElementById('cancelTestBtn');
+            
+            // Ouvrir le modal de test
+            testTemplateBtn.addEventListener('click', function() {
+                // Récupérer les paramètres du template
+                const html = document.getElementById('templateHtml').value;
+                const subject = document.getElementById('templateSubject').value;
+                const params = showDetectedParams(html, subject);
+                
+                // Remplir le formulaire de test
+                const testParamsContainer = document.getElementById('testParamsContainer');
+                testParamsContainer.innerHTML = '';
+                
+                params.forEach(param => {
+                    const div = document.createElement('div');
+                    div.style.marginBottom = '15px';
+                    
+                    div.innerHTML = `
+                        <label style="display:block; margin-bottom:5px; font-weight:500;">{{${param}}}</label>
+                        <input type="text" name="${param}" style="width:100%; padding:10px; background:rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:var(--radius); color:var(--text);">
+                    `;
+                    
+                    testParamsContainer.appendChild(div);
+                });
+                
+                // Stocker l'ID du template pour le test
+                currentTemplateId = document.getElementById('templateId').value;
+                
+                // Afficher le modal
+                testModal.style.display = 'block';
+            });
+            
+            // Fermer le modal de test
+            closeTestModal.addEventListener('click', function() {
+                testModal.style.display = 'none';
+            });
+            
+            cancelTestBtn.addEventListener('click', function() {
+                testModal.style.display = 'none';
+            });
+            
+            // Soumettre le formulaire de test
+            testForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const testEmail = document.getElementById('testEmail').value;
+                
+                // Récupérer tous les paramètres
+                const formData = new FormData(testForm);
+                const testData = {
+                    to: testEmail
+                };
+                
+                // Ajouter les paramètres
+                for (const [key, value] of formData.entries()) {
+                    if (key !== 'email') {
+                        testData[key] = value;
+                    }
+                }
+                
+                try {
+                    // Récupérer le token
+                    const token = localStorage.getItem('emailManagerToken');
+                    const headers = {
+                        'Content-Type': 'application/json',
+                        'Authorization': token ? `Bearer ${token}` : undefined,
+                        'X-API-Key': 'admin-test' // Une clé par défaut pour les tests admin
+                    };
+                    
+                    // Envoyer la requête de test
+                    const response = await fetch(`/email/${currentTemplateId}/test`, {
+                        method: 'POST',
+                        headers,
+                        credentials: 'include',
+                        body: JSON.stringify(testData)
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        // Fermer le modal
+                        testModal.style.display = 'none';
+                        alert('Email de test envoyé avec succès');
+                    } else {
+                        alert(`Erreur: ${result.error || 'Une erreur est survenue lors de l\'envoi du test'}`);
+                    }
+                } catch (error) {
+                    console.error('Erreur lors de l\'envoi du test:', error);
+                    alert('Erreur lors de l\'envoi du test');
+                }
+            });
+            
+            // Fonction pour éditer un template
+            async function editTemplate(id) {
+                try {
+                    const token = localStorage.getItem('emailManagerToken');
+                    const headers = {
+                        'Authorization': token ? `Bearer ${token}` : undefined
+                    };
+                    
+                    const response = await fetch(`/api/templates/${id}`, {
+                        method: 'GET',
+                        headers,
+                        credentials: 'include'
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        const template = result.data;
+                        
+                        // Remplir le formulaire
+                        document.getElementById('templateModalTitle').textContent = 'Modifier Template';
+                        document.getElementById('templateId').value = template.id;
+                        document.getElementById('templateName').value = template.name;
+                        document.getElementById('templateSubject').value = template.subject;
+                        document.getElementById('templateFromEmail').value = template.fromEmail || '';
+                        document.getElementById('templateHtml').value = template.html;
+                        
+                        // Afficher les paramètres
+                        showDetectedParams(template.html, template.subject);
+                        
+                        // Afficher le modal
+                        templateModal.style.display = 'block';
+                    } else {
+                        alert(`Erreur: ${result.error || 'Une erreur est survenue'}`);
+                    }
+                } catch (error) {
+                    console.error('Erreur lors de la récupération du template:', error);
+                    alert('Erreur lors de la récupération du template');
+                }
+            }
+            
+            // Fonction pour supprimer un template
+            async function deleteTemplate(id) {
+                if (!confirm('Êtes-vous sûr de vouloir supprimer ce template ?')) {
+                    return;
+                }
+                
+                try {
+                    const token = localStorage.getItem('emailManagerToken');
+                    const headers = {
+                        'Authorization': token ? `Bearer ${token}` : undefined
+                    };
+                    
+                    const response = await fetch(`/api/templates/${id}`, {
+                        method: 'DELETE',
+                        headers,
+                        credentials: 'include'
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        loadTemplatesData();
+                        alert('Template supprimé avec succès');
+                    } else {
+                        alert(`Erreur: ${result.error || 'Une erreur est survenue'}`);
+                    }
+                } catch (error) {
+                    console.error('Erreur lors de la suppression du template:', error);
+                    alert('Erreur lors de la suppression du template');
+                }
+            }
+            
+            // Fonction pour tester un template directement depuis la liste
+            async function testExistingTemplate(id) {
+                try {
+                    const token = localStorage.getItem('emailManagerToken');
+                    const headers = {
+                        'Authorization': token ? `Bearer ${token}` : undefined
+                    };
+                    
+                    const response = await fetch(`/api/templates/${id}`, {
+                        method: 'GET',
+                        headers,
+                        credentials: 'include'
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        const template = result.data;
+                        
+                        // Stocker l'ID du template
+                        currentTemplateId = template.id;
+                        
+                        // Remplir le formulaire de test
+                        const testParamsContainer = document.getElementById('testParamsContainer');
+                        testParamsContainer.innerHTML = '';
+                        
+                        template.params.forEach(param => {
+                            const div = document.createElement('div');
+                            div.style.marginBottom = '15px';
+                            
+                            div.innerHTML = `
+                                <label style="display:block; margin-bottom:5px; font-weight:500;">{{${param}}}</label>
+                                <input type="text" name="${param}" style="width:100%; padding:10px; background:rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:var(--radius); color:var(--text);">
+                            `;
+                            
+                            testParamsContainer.appendChild(div);
+                        });
+                        
+                        // Afficher le modal
+                        testModal.style.display = 'block';
+                    } else {
+                        alert(`Erreur: ${result.error || 'Une erreur est survenue'}`);
+                    }
+                } catch (error) {
+                    console.error('Erreur lors de la récupération du template:', error);
+                    alert('Erreur lors de la récupération du template');
+                }
+            }
+            
+            // DONNÉES TEMPLATES
+            async function loadTemplatesData() {
+                try {
+                    const templatesTable = document.getElementById('templatesTable');
+                    templatesTable.innerHTML = '<tr><td colspan="5" style="text-align:center;">Chargement...</td></tr>';
+                    
+                    const token = localStorage.getItem('emailManagerToken');
+                    const headers = {
+                        'Authorization': token ? `Bearer ${token}` : undefined
+                    };
+                    
+                    const response = await fetch('/api/templates', {
+                        method: 'GET',
+                        headers,
+                        credentials: 'include'
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        currentTemplates = result.data;
+                        
+                        if (currentTemplates.length === 0) {
+                            templatesTable.innerHTML = '<tr><td colspan="5" style="text-align:center;">Aucun template trouvé</td></tr>';
+                            return;
+                        }
+                        
+                        templatesTable.innerHTML = '';
+                        
+                        currentTemplates.forEach(template => {
+                            const row = document.createElement('tr');
+                            
+                            // Formater la date
+                            const createdAt = new Date(template.createdAt).toLocaleDateString();
+                            
+                            // Préparer les tags de paramètres
+                            const paramsTags = template.params.map(param => 
+                                `<span class="tag">{{${param}}}</span>`
+                            ).join(' ');
+                            
+                            row.innerHTML = `
+                                <td>
+                                    <strong>${template.name}</strong><br>
+                                    <small style="color:var(--text-secondary);">${template.id}</small>
+                                </td>
+                                <td>${template.subject}</td>
+                                <td>${paramsTags}</td>
+                                <td>${createdAt}</td>
+                                <td class="flex gap-10">
+                                    <button class="btn btn-sm btn-outline edit-template" data-id="${template.id}">✏️ Éditer</button>
+                                    <button class="btn btn-sm btn-outline test-template" data-id="${template.id}">📤 Tester</button>
+                                    <button class="btn btn-sm btn-danger delete-template" data-id="${template.id}">🗑️</button>
+                                </td>
+                            `;
+                            
+                            templatesTable.appendChild(row);
+                        });
+                        
+                        // Ajouter les écouteurs d'événements
+                        document.querySelectorAll('.edit-template').forEach(btn => {
+                            btn.addEventListener('click', function() {
+                                const id = this.getAttribute('data-id');
+                                editTemplate(id);
+                            });
+                        });
+                        
+                        document.querySelectorAll('.test-template').forEach(btn => {
+                            btn.addEventListener('click', function() {
+                                const id = this.getAttribute('data-id');
+                                testExistingTemplate(id);
+                            });
+                        });
+                        
+                        document.querySelectorAll('.delete-template').forEach(btn => {
+                            btn.addEventListener('click', function() {
+                                const id = this.getAttribute('data-id');
+                                deleteTemplate(id);
+                            });
+                        });
+                    } else {
+                        templatesTable.innerHTML = `<tr><td colspan="5" style="text-align:center;">Erreur: ${result.error || 'Une erreur est survenue'}</td></tr>`;
+                    }
+                } catch (error) {
+                    console.error('Erreur lors du chargement des templates:', error);
+                    document.getElementById('templatesTable').innerHTML = '<tr><td colspan="5" style="text-align:center;">Erreur lors du chargement des templates</td></tr>';
+                }
+            }
+
+            // DONNÉES LOGS
+            function loadLogsData() {
+                const logsTable = document.getElementById('logsTable');
+                logsTable.innerHTML = '';
+                
+                for (let i = 0; i < 10; i++) {
+                    const isSuccess = i % 4 !== 0;
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>Template ${i % 5 + 1}</td>
+                        <td>user${i+1}@example.com</td>
+                        <td>Sujet de l'email ${i+1}</td>
+                        <td>
+                            <span class="badge badge-${isSuccess ? 'success' : 'error'}">
+                                ${isSuccess ? 'Succès' : 'Échec'}
+                            </span>
+                        </td>
+                        <td>${new Date().toLocaleDateString()}</td>
+                    `;
+                    logsTable.appendChild(row);
+                }
+            }
+
+            // DONNÉES STATISTIQUES
+            function loadStatsData() {
+                const statsTable = document.getElementById('statsTable');
+                statsTable.innerHTML = '';
+                
+                for (let i = 0; i < 5; i++) {
+                    const total = 50 - i * 5;
+                    const successRate = 98 - i * 3;
+                    const success = Math.round(total * successRate / 100);
+                    const failed = total - success;
+                    
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>Template ${i+1}</td>
+                        <td>${total}</td>
+                        <td>${success}</td>
+                        <td>${failed}</td>
+                        <td>
+                            <span class="badge badge-${successRate > 90 ? 'success' : 'warning'}">
+                                ${successRate}%
+                            </span>
+                        </td>
+                    `;
+                    statsTable.appendChild(row);
+                }
+            }
+
+            // Éviter la fermeture des modals en cliquant à l'extérieur
+            window.onclick = function(event) {
+                if (event.target === templateModal) {
+                    // Ne fermez pas le modal si l'utilisateur clique en dehors
+                    // templateModal.style.display = 'none';
+                }
+                if (event.target === testModal) {
+                    // Ne fermez pas le modal si l'utilisateur clique en dehors
+                    // testModal.style.display = 'none';
+                }
+            };
+
+            // Vérifier si nous venons d'une redirection de login
+            if (document.referrer.includes('/admin/login')) {
+                console.log('Connexion réussie, bienvenue!');
+            }
+
+            // Charger les données initiales du dashboard
+            loadDashboardData();
+        });
+    </script><!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">

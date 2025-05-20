@@ -8,9 +8,11 @@ const router = Router();
 // Login admin
 router.post('/login', async (req: Request, res: Response) => {
   try {
+    console.log('📢 Tentative de connexion admin');
     const { password }: LoginRequest = req.body;
 
     if (!password) {
+      console.log('❌ Échec: Mot de passe non fourni');
       res.status(400).json({
         success: false,
         error: 'Mot de passe requis'
@@ -20,10 +22,14 @@ router.post('/login', async (req: Request, res: Response) => {
 
     // Vérifier le mot de passe admin
     const adminPassword = process.env.ADMIN_PASSWORD;
+    console.log('🔐 Tentative de connexion avec mot de passe');
+    console.log('Mot de passe admin défini:', !!adminPassword);
+    
     if (!adminPassword) {
+      console.error('⚠️ ADMIN_PASSWORD non défini dans les variables d\'environnement');
       res.status(500).json({
         success: false,
-        error: 'Configuration serveur invalide'
+        error: 'Configuration serveur invalide (ADMIN_PASSWORD non défini)'
       } as ApiResponse);
       return;
     }
@@ -31,19 +37,12 @@ router.post('/login', async (req: Request, res: Response) => {
     // Comparer le mot de passe (en mode développement, comparaison directe)
     let isValidPassword = false;
     
-    if (process.env.NODE_ENV === 'development') {
-      isValidPassword = password === adminPassword;
-    } else {
-      // En production, utiliser bcrypt si le mot de passe est déjà hashé
-      try {
-        isValidPassword = await bcrypt.compare(password, adminPassword);
-      } catch {
-        // Si la comparaison échoue, essayer une comparaison directe
-        isValidPassword = password === adminPassword;
-      }
-    }
+    // Utiliser une comparaison directe pour simplifier (dans les deux modes)
+    isValidPassword = password === adminPassword;
+    console.log('Comparaison mot de passe:', isValidPassword);
 
     if (!isValidPassword) {
+      console.log('❌ Échec: Mot de passe incorrect');
       res.status(401).json({
         success: false,
         error: 'Mot de passe incorrect'
@@ -58,6 +57,7 @@ router.post('/login', async (req: Request, res: Response) => {
 
     // Sauvegarder la session
     await req.db.createSession(token, expiresAt);
+    console.log('✅ Succès: Session créée, token:', token.substring(0, 8) + '...');
 
     // Stocker le token dans la session Express
     req.session!.adminToken = token;
@@ -72,7 +72,7 @@ router.post('/login', async (req: Request, res: Response) => {
     } as ApiResponse);
 
   } catch (error) {
-    console.error('Erreur lors de la connexion:', error);
+    console.error('❌ Erreur lors de la connexion:', error);
     res.status(500).json({
       success: false,
       error: 'Erreur interne du serveur'

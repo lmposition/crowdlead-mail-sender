@@ -119,6 +119,14 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 // Initialisation du serveur
 async function startServer() {
   try {
+    // Vérification des variables d'environnement
+    console.log('✅ Vérification des variables d\'environnement');
+    console.log('ADMIN_PASSWORD défini:', !!process.env.ADMIN_PASSWORD);
+    console.log('SESSION_SECRET défini:', !!process.env.SESSION_SECRET);
+    console.log('DATABASE_URL:', process.env.DATABASE_URL?.substring(0, 15) + '...');
+    console.log('PORT:', process.env.PORT);
+    console.log('NODE_ENV:', process.env.NODE_ENV);
+    
     // Initialiser les tables de la base de données
     await database.initTables();
     console.log('✅ Base de données initialisée');

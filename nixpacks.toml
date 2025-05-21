@@ -1,0 +1,13 @@
+[phases.setup]
+nixPkgs = ["postgresql", "openssl"]
+
+[phases.build]
+cmds = [
+  "rm -f go.sum",  # Supprimer go.sum existant
+  "go mod tidy",   # Regénérer go.mod et go.sum
+  "go mod download",
+  "go build -o email-api"
+]
+
+[start]
+cmd = "chmod +x ./start.sh && ./start.sh"

@@ -20,7 +20,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/joho/godotenv"
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/lib/pq"
 	"github.com/resend/resend-go"
 )
 
@@ -31,7 +31,7 @@ type Config struct {
 	ConfigAPIKey     string
 	ResendAPIKey     string
 	DefaultFromEmail string
-	DbPath           string
+	DatabaseURL      string
 }
 
 // Réponse API standard
@@ -134,8 +134,8 @@ func replaceTemplateParams(content string, params map[string]interface{}) string
 }
 
 // Initialisation de la base de données
-func NewDatabase(dbPath string) (*Database, error) {
-	db, err := sql.Open("sqlite3", dbPath)
+func NewDatabase(dbURL string) (*Database, error) {
+	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		return nil, err
 	}
@@ -148,44 +148,7 @@ func NewDatabase(dbPath string) (*Database, error) {
 		DB: db,
 	}
 
-	if err = database.InitTables(); err != nil {
-		return nil, err
-	}
-
 	return database, nil
-}
-
-func (db *Database) InitTables() error {
-	// Table des templates
-	_, err := db.DB.Exec(`
-	CREATE TABLE IF NOT EXISTS email_templates (
-		id TEXT PRIMARY KEY,
-		name TEXT NOT NULL,
-		subject TEXT NOT NULL,
-		html TEXT NOT NULL,
-		from_email TEXT,
-		params TEXT,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	)`)
-	if err != nil {
-		return err
-	}
-
-	// Table des logs d'emails
-	_, err = db.DB.Exec(`
-	CREATE TABLE IF NOT EXISTS email_logs (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		template_id TEXT NOT NULL,
-		recipient_email TEXT NOT NULL,
-		subject TEXT NOT NULL,
-		status TEXT NOT NULL,
-		error_message TEXT,
-		sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		FOREIGN KEY (template_id) REFERENCES email_templates(id) ON DELETE CASCADE
-	)`)
-
-	return err
 }
 
 // Méthodes pour les templates
@@ -193,7 +156,7 @@ func (db *Database) GetTemplate(id string) (*EmailTemplate, error) {
 	row := db.DB.QueryRow(`
 	SELECT id, name, subject, html, from_email, params, created_at, updated_at 
 	FROM email_templates 
-	WHERE id = ?`, id)
+	WHERE id = $1`, id)
 	
 	var template EmailTemplate
 	var paramsJSON string
@@ -279,7 +242,7 @@ func (db *Database) CreateTemplate(template *EmailTemplate) error {
 	
 	_, err = db.DB.Exec(`
 	INSERT INTO email_templates (id, name, subject, html, from_email, params, created_at, updated_at)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
 		template.ID,
 		template.Name,
 		template.Subject,
@@ -301,8 +264,8 @@ func (db *Database) UpdateTemplate(template *EmailTemplate) error {
 	
 	_, err = db.DB.Exec(`
 	UPDATE email_templates 
-	SET name = ?, subject = ?, html = ?, from_email = ?, params = ?, updated_at = ?
-	WHERE id = ?`,
+	SET name = $1, subject = $2, html = $3, from_email = $4, params = $5, updated_at = $6
+	WHERE id = $7`,
 		template.Name,
 		template.Subject,
 		template.HTML,
@@ -316,7 +279,7 @@ func (db *Database) UpdateTemplate(template *EmailTemplate) error {
 }
 
 func (db *Database) DeleteTemplate(id string) error {
-	_, err := db.DB.Exec("DELETE FROM email_templates WHERE id = ?", id)
+	_, err := db.DB.Exec("DELETE FROM email_templates WHERE id = $1", id)
 	return err
 }
 
@@ -324,7 +287,7 @@ func (db *Database) DeleteTemplate(id string) error {
 func (db *Database) CreateEmailLog(log *EmailLog) error {
 	_, err := db.DB.Exec(`
 	INSERT INTO email_logs (template_id, recipient_email, subject, status, error_message)
-	VALUES (?, ?, ?, ?, ?)`,
+	VALUES ($1, $2, $3, $4, $5)`,
 		log.TemplateID,
 		log.RecipientEmail,
 		log.Subject,
@@ -342,22 +305,12 @@ func NewApp() (*App, error) {
 		log.Println("No .env file found, using environment variables")
 	}
 	
-	// Base de données : sur Railway, stockez-la dans /app/data
-	dbPath := os.Getenv("DB_PATH")
-	if dbPath == "" {
-		dbPath = "/app/data/database.db"
-		if _, err := os.Stat("/app/data"); os.IsNotExist(err) {
-			// Si nous ne sommes pas sur Railway, utilisez un chemin local
-			dbPath = "./database.db"
-		}
-	}
-	
 	// Configuration de base
 	config := Config{
 		Port:             os.Getenv("PORT"),
 		ResendAPIKey:     os.Getenv("RESEND_API_KEY"),
 		DefaultFromEmail: os.Getenv("FROM_EMAIL"),
-		DbPath:           dbPath,
+		DatabaseURL:      os.Getenv("DATABASE_URL"),
 	}
 	
 	// Valeurs par défaut
@@ -383,7 +336,7 @@ func NewApp() (*App, error) {
 	}
 	
 	// Initialiser la base de données
-	db, err := NewDatabase(config.DbPath)
+	db, err := NewDatabase(config.DatabaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize database: %w", err)
 	}
@@ -798,103 +751,6 @@ func (app *App) handleSendEmail(w http.ResponseWriter, r *http.Request) {
 		Html:    html,
 	}
 	
-	resp, err := app.Resend.Emails.Send(params)
-	if err != nil {
-		log.Printf("Erreur lors de l'envoi de l'email de test: %v", err)
-		respondWithError(w, http.StatusInternalServerError, "Erreur lors de l'envoi de l'email de test")
-		return
-	}
-	
-	respondWithSuccess(w, http.StatusOK, map[string]interface{}{
-		"emailId":    resp.ID,
-		"templateId": templateID,
-		"recipient":  to,
-		"subject":    subject,
-		"testParams": testParams,
-	}, "Email de test envoyé avec succès")
-}
-
-// Fonction principale
-func main() {
-	// Créer l'application
-	app, err := NewApp()
-	if err != nil {
-		log.Fatalf("Erreur lors de l'initialisation de l'application: %v", err)
-	}
-	
-	// Obtenir le port depuis l'environnement Railway ou utiliser la valeur par défaut
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = app.Config.Port // Utiliser la valeur par défaut
-	} else {
-		app.Config.Port = port // Mettre à jour la config
-	}
-	
-	// Afficher les informations importantes
-	log.Printf("🚀 Email Manager API démarré sur le port %s", app.Config.Port)
-	log.Printf("📧 API Email disponible avec la clé API: %s", app.Config.EmailAPIKey)
-	log.Printf("⚙️ API Config disponible avec la clé API: %s", app.Config.ConfigAPIKey)
-	log.Printf("💾 Base de données: %s", app.Config.DbPath)
-	
-	// Configurer le canal pour les signaux d'arrêt
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-	
-	// Démarrer le serveur dans une goroutine
-	srv := &http.Server{
-		Addr:    ":" + app.Config.Port,
-		Handler: app.Router,
-	}
-	
-	go func() {
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Erreur du serveur HTTP: %v", err)
-		}
-	}()
-	
-	<-stop
-	
-	log.Println("🛑 Arrêt du serveur...")
-	
-	// Création d'un contexte avec un timeout pour l'arrêt propre
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	
-	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatalf("Erreur lors de l'arrêt du serveur: %v", err)
-	}
-	
-	log.Println("✅ Serveur arrêté proprement")
-} := template.FromEmail
-	if fromEmail == "" {
-		fromEmail = app.Config.DefaultFromEmail
-	}
-	
-	// Convertir to en tableau si c'est une chaîne
-	var recipients []string
-	switch v := to.(type) {
-	case string:
-		recipients = []string{v}
-	case []string:
-		recipients = v
-	case []interface{}:
-		for _, r := range v {
-			if s, ok := r.(string); ok {
-				recipients = append(recipients, s)
-			}
-		}
-	default:
-		recipients = []string{fmt.Sprintf("%v", to)}
-	}
-	
-	// Envoyer l'email via Resend
-	params := &resend.SendEmailRequest{
-		From:    fromEmail,
-		To:      recipients,
-		Subject: subject,
-		Html:    html,
-	}
-	
 	if cc != "" {
 		params.Cc = []string{cc}
 	}
@@ -983,4 +839,50 @@ func (app *App) handleSendTestEmail(w http.ResponseWriter, r *http.Request) {
 	html := replaceTemplateParams(template.HTML, testParams)
 	
 	// Préparer l'email
-	fromEmail
+	fromEmail := template.FromEmail
+	if fromEmail == "" {
+		fromEmail = app.Config.DefaultFromEmail
+	}
+	
+	// Convertir to en tableau si c'est une chaîne
+	var recipients []string
+	switch v := to.(type) {
+	case string:
+		recipients = []string{v}
+	case []string:
+		recipients = v
+	case []interface{}:
+		for _, r := range v {
+			if s, ok := r.(string); ok {
+				recipients = append(recipients, s)
+			}
+		}
+	default:
+		recipients = []string{fmt.Sprintf("%v", to)}
+	}
+	
+	// Envoyer l'email via Resend
+	params := &resend.SendEmailRequest{
+		From:    fromEmail,
+		To:      recipients,
+		Subject: subject,
+		Html:    html,
+	}
+	
+	resp, err := app.Resend.Emails.Send(params)
+	if err != nil {
+		log.Printf("Erreur lors de l'envoi de l'email de test: %v", err)
+		respondWithError(w, http.StatusInternalServerError, "Erreur lors de l'envoi de l'email de test")
+		return
+	}
+	
+	respondWithSuccess(w, http.StatusOK, map[string]interface{}{
+		"emailId":    resp.ID,
+		"templateId": templateID,
+		"recipient":  to,
+		"subject":    subject,
+		"testParams": testParams,
+	}, "Email de test envoyé avec succès")
+}
+
+// Fonction

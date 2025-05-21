@@ -1,23 +1,24 @@
-FROM golang:1.21 AS builder
+
+FROM golang:1.21-alpine AS builder
 
 WORKDIR /app
 
-# Désactiver complètement les vérifications de checksums
+# Désactiver les vérifications de checksums
 ENV GOSUMDB=off
 
-# Copier le code et construire
+# Copier et construire
 COPY . .
 RUN go mod tidy && go build -o app
 
-# Image finale en une seule étape
-FROM golang:1.21
+# Image finale minimaliste
+FROM alpine:3.18
 
 WORKDIR /app
 
-# Installer PostgreSQL client
-RUN apt-get update && apt-get install -y postgresql-client
+# Ajouter uniquement les certificats CA
+RUN apk add --no-cache ca-certificates
 
-# Copier l'application et les scripts
+# Copier l'application compilée
 COPY --from=builder /app/app .
 COPY start.sh .
 RUN chmod +x start.sh
@@ -25,5 +26,5 @@ RUN chmod +x start.sh
 # Exposer le port
 EXPOSE 8080
 
-# Démarrer l'application
+# Démarrer
 CMD ["./start.sh"]

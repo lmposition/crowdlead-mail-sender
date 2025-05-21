@@ -2,37 +2,34 @@ FROM golang:1.21-alpine AS builder
 
 WORKDIR /app
 
-# Installer les dépendances de build
-RUN apk add --no-cache git gcc musl-dev
+# Installer uniquement le minimum nécessaire
+RUN apk add --no-cache gcc musl-dev
 
-# Copier uniquement les fichiers de dépendances d'abord
+# Copier go.mod et go.sum
 COPY go.mod go.sum ./
 
-# Forcer la mise à jour des dépendances avec checksum correct
-RUN go mod download && go mod verify
+# Télécharger les dépendances
+RUN go mod download
 
 # Copier le code source
 COPY . .
 
 # Compiler l'application
-RUN CGO_ENABLED=1 GOOS=linux go build -o email-api -ldflags="-s -w" .
+RUN CGO_ENABLED=1 go build -o email-api .
 
-# Image finale
+# Image finale ultra légère
 FROM alpine:3.18
 
 WORKDIR /app
 
-# Installer les dépendances nécessaires pour PostgreSQL et TLS
-RUN apk add --no-cache ca-certificates tzdata postgresql-client
+# Uniquement les certificats nécessaires pour HTTPS
+RUN apk add --no-cache ca-certificates
 
-# Créer le dossier pour le conteneur
-RUN mkdir -p /app/data
-
-# Copier l'exécutable
-COPY --from=builder /app/email-api /app/
+# Copier l'exécutable compilé
+COPY --from=builder /app/email-api .
 
 # Exposer le port
 EXPOSE 8080
 
-# Définir la commande à exécuter
+# Lancer l'application
 CMD ["/app/email-api"]

@@ -6,8 +6,8 @@ require (
 	github.com/go-chi/chi/v5 v5.0.10
 	github.com/go-chi/cors v1.2.1
 	github.com/joho/godotenv v1.5.1
-	github.com/mattn/go-sqlite3 v1.14.17
-	github.com/resend/resend-go v1.7.0
+	github.com/lib/pq v1.10.9
+	github.com/resendlabs/resend-go v1.7.0
 )
 
 require (

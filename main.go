@@ -21,7 +21,7 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
-	"github.com/resend/resend-go"
+	"github.com/resendlabs/resend-go"
 )
 
 // Configuration globale
@@ -95,7 +95,102 @@ type App struct {
 	Router *chi.Mux
 }
 
-// Fonctions utilitaires
+// Fonction principale
+func main() {
+	// Créer l'application
+	app, err := NewApp()
+	if err != nil {
+		log.Fatalf("Erreur lors de l'initialisation de l'application: %v", err)
+	}
+	
+	// Obtenir le port depuis l'environnement Railway ou utiliser la valeur par défaut
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = app.Config.Port // Utiliser la valeur par défaut
+	} else {
+		app.Config.Port = port // Mettre à jour la config
+	}
+	
+	// Initialiser les tables de la base de données
+	err = initDatabase(app.DB.DB)
+	if err != nil {
+		log.Fatalf("Erreur lors de l'initialisation des tables: %v", err)
+	}
+	
+	// Afficher les informations importantes
+	log.Printf("🚀 Email Manager API démarré sur le port %s", app.Config.Port)
+	log.Printf("📧 API Email disponible avec la clé API: %s", app.Config.EmailAPIKey)
+	log.Printf("⚙️ API Config disponible avec la clé API: %s", app.Config.ConfigAPIKey)
+	log.Printf("🛢️ Base de données PostgreSQL: %s", "connectée")
+	
+	// Configurer le canal pour les signaux d'arrêt
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	
+	// Démarrer le serveur dans une goroutine
+	srv := &http.Server{
+		Addr:    ":" + app.Config.Port,
+		Handler: app.Router,
+	}
+	
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Erreur du serveur HTTP: %v", err)
+		}
+	}()
+	
+	<-stop
+	
+	log.Println("🛑 Arrêt du serveur...")
+	
+	// Création d'un contexte avec un timeout pour l'arrêt propre
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatalf("Erreur lors de l'arrêt du serveur: %v", err)
+	}
+	
+	log.Println("✅ Serveur arrêté proprement")
+}
+
+// Fonction pour initialiser la base de données
+func initDatabase(db *sql.DB) error {
+	// Table des templates
+	_, err := db.Exec(`
+	CREATE TABLE IF NOT EXISTS email_templates (
+		id TEXT PRIMARY KEY,
+		name TEXT NOT NULL,
+		subject TEXT NOT NULL,
+		html TEXT NOT NULL,
+		from_email TEXT,
+		params TEXT,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	)`)
+	if err != nil {
+		return fmt.Errorf("échec création table email_templates: %w", err)
+	}
+
+	// Table des logs d'emails
+	_, err = db.Exec(`
+	CREATE TABLE IF NOT EXISTS email_logs (
+		id SERIAL PRIMARY KEY,
+		template_id TEXT NOT NULL,
+		recipient_email TEXT NOT NULL,
+		subject TEXT NOT NULL,
+		status TEXT NOT NULL,
+		error_message TEXT,
+		sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (template_id) REFERENCES email_templates(id) ON DELETE CASCADE
+	)`)
+	if err != nil {
+		return fmt.Errorf("échec création table email_logs: %w", err)
+	}
+
+	log.Println("✅ Tables de base de données initialisées avec succès")
+	return nil
+}s utilitaires
 func generateSecureToken(length int) string {
 	b := make([]byte, length)
 	if _, err := rand.Read(b); err != nil {

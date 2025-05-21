@@ -5,11 +5,11 @@ WORKDIR /app
 # Installer les dépendances de build
 RUN apk add --no-cache git gcc musl-dev
 
-# Copier go.mod et go.sum (s'ils existent)
-COPY go.mod go.sum* ./
+# Copier uniquement les fichiers de dépendances d'abord
+COPY go.mod go.sum ./
 
-# Télécharger les dépendances
-RUN go mod download
+# Forcer la mise à jour des dépendances avec checksum correct
+RUN go mod download && go mod verify
 
 # Copier le code source
 COPY . .
@@ -22,10 +22,10 @@ FROM alpine:3.18
 
 WORKDIR /app
 
-# Installer les dépendances nécessaires pour SQLite et TLS
-RUN apk add --no-cache ca-certificates tzdata sqlite
+# Installer les dépendances nécessaires pour PostgreSQL et TLS
+RUN apk add --no-cache ca-certificates tzdata postgresql-client
 
-# Créer le dossier pour la base de données
+# Créer le dossier pour le conteneur
 RUN mkdir -p /app/data
 
 # Copier l'exécutable

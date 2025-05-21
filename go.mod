@@ -1,4 +1,4 @@
-module github.com/yourusername/email-api
+module email-api
 
 go 1.21
 

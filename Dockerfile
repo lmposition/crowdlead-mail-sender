@@ -1,39 +1,29 @@
-FROM golang:1.21-alpine AS builder
+FROM golang:1.21 AS builder
 
 WORKDIR /app
 
-# Installer les dépendances requises
-RUN apk add --no-cache gcc musl-dev postgresql-client
-
-# IMPORTANT: Désactiver la vérification des checksums 
-ENV GONOSUMDB="github.com/resendlabs/*"
+# Désactiver complètement les vérifications de checksums
 ENV GOSUMDB=off
 
-# Copier les fichiers Go
-COPY go.mod main.go ./
+# Copier le code et construire
+COPY . .
+RUN go mod tidy && go build -o app
 
-# Initialiser le module et construire
-RUN go mod tidy && \
-    go mod download && \
-    go build -o email-api
-
-# Image finale
-FROM alpine:3.18
+# Image finale en une seule étape
+FROM golang:1.21
 
 WORKDIR /app
 
-# Installer les dépendances
-RUN apk add --no-cache ca-certificates postgresql-client bash
+# Installer PostgreSQL client
+RUN apt-get update && apt-get install -y postgresql-client
 
-# Copier l'exécutable compilé
-COPY --from=builder /app/email-api .
+# Copier l'application et les scripts
+COPY --from=builder /app/app .
 COPY start.sh .
-
-# Rendre le script exécutable
 RUN chmod +x start.sh
 
 # Exposer le port
 EXPOSE 8080
 
-# Lancer l'application
-CMD ["/bin/bash", "start.sh"]
+# Démarrer l'application
+CMD ["./start.sh"]

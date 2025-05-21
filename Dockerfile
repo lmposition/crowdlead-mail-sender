@@ -15,7 +15,7 @@ RUN go mod download
 COPY . .
 
 # Compiler l'application
-RUN CGO_ENABLED=1 GOOS=linux go build -o email-manager -ldflags="-s -w" .
+RUN CGO_ENABLED=1 GOOS=linux go build -o email-api -ldflags="-s -w" .
 
 # Image finale
 FROM alpine:3.18
@@ -25,15 +25,14 @@ WORKDIR /app
 # Installer les dépendances nécessaires pour SQLite et TLS
 RUN apk add --no-cache ca-certificates tzdata sqlite
 
-# Créer le dossier pour la base de données et les fichiers statiques
-RUN mkdir -p /app/data /app/public
+# Créer le dossier pour la base de données
+RUN mkdir -p /app/data
 
 # Copier l'exécutable
-COPY --from=builder /app/email-manager /app/
-COPY --from=builder /app/public /app/public
+COPY --from=builder /app/email-api /app/
 
 # Exposer le port
 EXPOSE 8080
 
 # Définir la commande à exécuter
-CMD ["/app/email-manager"]
+CMD ["/app/email-api"]
